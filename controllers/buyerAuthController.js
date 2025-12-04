@@ -81,19 +81,20 @@ exports.createProfile = async (req, res) => {
 
     const { companyName, contactPerson, email, phone } = req.body;
 
+    console.log(req.body);
     // Validate required fields
     if (!companyName || !contactPerson || !email || !phone) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
     // Check if email is already used by another buyer
-    const existingBuyer = await Buyer.findOne({
-      phone,
-    });
+    // const existingBuyer = await Buyer.findOne({
+    //   phone,
+    // });
 
-    if (existingBuyer) {
-      return res.status(400).json({ message: "Phone already in use" });
-    }
+    // if (existingBuyer) {
+    //   return res.status(400).json({ message: "Phone already in use" });
+    // }
 //vendor = new Vendor({ phone, role: "vendor", otp, otpExpires });
     const buyer = new Buyer({
       companyName,
