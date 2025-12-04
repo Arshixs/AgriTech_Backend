@@ -5,7 +5,7 @@ const cors = require("cors");
 
 const authRoutes = require("./routers/authRoutes");
 const vendorAuthRoutes = require("./routers/vendorAuthRoutes");
-
+const vendorProductRoutes = require("./routers/vendorProductRoutes");
 const app = express();
 
 // Middleware
@@ -20,6 +20,7 @@ app.use(
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
+app.use("/api/vendor/product", vendorProductRoutes);
 
 // Database Connection
 mongoose
