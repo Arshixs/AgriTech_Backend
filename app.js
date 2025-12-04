@@ -1,3 +1,5 @@
+// File: app.js
+
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -6,10 +8,13 @@ const cors = require("cors");
 const authRoutes = require("./routers/authRoutes");
 const vendorAuthRoutes = require("./routers/vendorAuthRoutes");
 const vendorProductRoutes = require("./routers/vendorProductRoutes");
+const buyerAuthRoutes = require("./routers/buyerAuthRoutes");
 const app = express();
 
 // Middleware
 app.use(express.json());
+// app.use(cors());
+
 app.use(
   cors({
     origin: "*", // allow all mobile requests
@@ -17,10 +22,20 @@ app.use(
   })
 );
 
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
 app.use("/api/vendor/product", vendorProductRoutes);
+app.use("/api/buyer/auth", buyerAuthRoutes);
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    message: "Server is running",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
 
 // Database Connection
 mongoose
