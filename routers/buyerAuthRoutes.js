@@ -20,4 +20,9 @@ router.post("/buyer-exist", buyerExists);
 router.post("/update-profile", protect, updateProfile);
 router.get("/profile", protect, getProfile);
 
+router.get("/health",(req,res,next)=>{
+  res.status(200).json({
+    "status":"OK"
+  })
+})
 module.exports = router;
