@@ -8,6 +8,7 @@ const {
   verifyOtp,
   updateProfile,
   getProfile,
+  createProfile
 } = require("../controllers/buyerAuthController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -17,6 +18,7 @@ router.post("/verify-otp", verifyOtp);
 router.post("/buyer-exist", buyerExists);
 
 // Protected Routes (Requires JWT)
+router.post("/create-profile",createProfile);
 router.post("/update-profile", protect, updateProfile);
 router.get("/profile", protect, getProfile);
 
