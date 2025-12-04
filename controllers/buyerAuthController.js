@@ -49,11 +49,8 @@ exports.sendOtp = async (req, res) => {
     let buyer = await Buyer.findOne({ phone });
 
     if (!buyer) {
-      res
-        .status(404)
-        .json({ message: "Account do not exist for this phone number" });
-      //   // Create new Buyer (Profile fields will be empty initially)
-      //   buyer = new Buyer({ phone, role: "buyer", otp, otpExpires });
+      // Create new Buyer (Profile fields will be empty initially)
+      buyer = new Buyer({ phone, role: "buyer", otp, otpExpires });
     } else {
       buyer.otp = otp;
       buyer.otpExpires = otpExpires;
@@ -72,50 +69,6 @@ exports.sendOtp = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server Error sending OTP" });
-  }
-};
-
-exports.createProfile = async (req, res) => {
-  try {
-    // const { buyerId } = req.user; // From authMiddleware
-
-    const { companyName, contactPerson, email, phone } = req.body;
-
-    console.log(req.body);
-    // Validate required fields
-    if (!companyName || !contactPerson || !email || !phone) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    // Check if email is already used by another buyer
-    // const existingBuyer = await Buyer.findOne({
-    //   phone,
-    // });
-
-    // if (existingBuyer) {
-    //   return res.status(400).json({ message: "Phone already in use" });
-    // }
-//vendor = new Vendor({ phone, role: "vendor", otp, otpExpires });
-    const buyer = new Buyer({
-      companyName,
-      contactPerson,
-      email,
-      phone,
-      role:"buyer"
-    });
-
-    await buyer.save();
-    // if (!buyer) {
-    //   return res.status(404).json({ message: "Buyer not found" });
-    // }
-
-    res.status(200).json({
-      message: "Profile created successfully",
-      buyer,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server Error updating profile" });
   }
 };
 
@@ -183,9 +136,9 @@ exports.updateProfile = async (req, res) => {
     }
 
     // Check if email is already used by another buyer
-    const existingBuyer = await Buyer.findOne({
-      email,
-      _id: { $ne: buyerId },
+    const existingBuyer = await Buyer.findOne({ 
+      email, 
+      _id: { $ne: buyerId } 
     });
 
     if (existingBuyer) {
@@ -202,9 +155,9 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ message: "Buyer not found" });
     }
 
-    res.status(200).json({
-      message: "Profile updated successfully",
-      buyer,
+    res.status(200).json({ 
+      message: "Profile updated successfully", 
+      buyer 
     });
   } catch (error) {
     console.error(error);
@@ -217,7 +170,7 @@ exports.getProfile = async (req, res) => {
   try {
     const { buyerId } = req.user; // From authMiddleware
 
-    const buyer = await Buyer.findById(buyerId).select("-otp -otpExpires");
+    const buyer = await Buyer.findById(buyerId).select('-otp -otpExpires');
 
     if (!buyer) {
       return res.status(404).json({ message: "Buyer not found" });

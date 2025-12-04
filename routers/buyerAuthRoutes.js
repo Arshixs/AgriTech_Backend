@@ -17,8 +17,8 @@ router.post("/send-otp", sendOtp);
 router.post("/verify-otp", verifyOtp);
 router.post("/buyer-exist", buyerExists);
 
-// Protected Routes (Requires JWT)
-router.post("/create-profile",createProfile);
+// // Protected Routes (Requires JWT)
+// router.post("/create-profile",createProfile);
 router.post("/update-profile", protect, updateProfile);
 router.get("/profile", protect, getProfile);
 
