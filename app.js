@@ -1,3 +1,5 @@
+// File: app.js
+
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -5,6 +7,7 @@ const cors = require("cors");
 
 const authRoutes = require("./routers/authRoutes");
 const vendorAuthRoutes = require("./routers/vendorAuthRoutes");
+const buyerAuthRoutes = require("./routers/buyerAuthRoutes");
 
 const app = express();
 
@@ -20,6 +23,7 @@ app.use(
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
+app.use("/api/buyer/auth", buyerAuthRoutes);
 
 // Database Connection
 mongoose
