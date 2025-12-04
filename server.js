@@ -9,7 +9,7 @@ app.set("port", port);
 const server = http.createServer(app);
 
 // Listen on provided port, on all network interfaces.
-server.listen(port);
+server.listen(port,"0.0.0.0");
 
 server.on("listening", () => {
   const addr = server.address();
