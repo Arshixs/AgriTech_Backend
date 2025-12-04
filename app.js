@@ -24,7 +24,7 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
 app.use("/api/buyer/auth", buyerAuthRoutes);
-app.use("/health",(req,res,next)=>{
+router.get("/health",(req,res,next)=>{
   res.status(200).json({
     "status":"OK"
   })});
