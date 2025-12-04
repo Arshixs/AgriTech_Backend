@@ -10,4 +10,5 @@ router.post('/verify-otp', verifyOtp);
 // Protected Routes (Requires JWT)
 router.post('/update-profile', protect, updateProfile);
 
+
 module.exports = router;
