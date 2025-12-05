@@ -1,3 +1,5 @@
+// File: middleware/authMiddleware.js
+
 const jwt = require('jsonwebtoken');
 
 const protect = (req, res, next) => {
@@ -15,17 +17,16 @@ const protect = (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // Add user info to request object
+      // decoded can have: userId, vendorId, buyerId, or govtId
       req.user = decoded; 
       
       next();
     } catch (error) {
       console.error(error);
-      res.status(401).json({ message: 'Not authorized, token failed' });
+      return res.status(401).json({ message: 'Not authorized, token failed' });
     }
-  }
-
-  if (!token) {
-    res.status(401).json({ message: 'Not authorized, no token' });
+  } else {
+    return res.status(401).json({ message: 'Not authorized, no token' });
   }
 };
 

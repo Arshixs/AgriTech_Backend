@@ -10,12 +10,13 @@ const vendorAuthRoutes = require("./routers/vendorAuthRoutes");
 const vendorProductRoutes = require("./routers/vendorProductRoutes");
 const buyerAuthRoutes = require("./routers/buyerAuthRoutes");
 const orderRoutes = require("./routers/orderRoutes");
+const govtAuthRoutes = require("./routers/govtAuthRoutes");
+const mspRoutes = require("./routers/mspRoutes");
+
 const app = express();
 
 // Middleware
 app.use(express.json());
-// app.use(cors());
-
 app.use(
   cors({
     origin: "*", // allow all mobile requests
@@ -23,12 +24,14 @@ app.use(
   })
 );
 
-
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
 app.use("/api/vendor/product", vendorProductRoutes);
 app.use("/api/buyer/auth", buyerAuthRoutes);
+app.use("/api/govt/auth", govtAuthRoutes);
+app.use("/api/msp", mspRoutes);
+
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "OK",
