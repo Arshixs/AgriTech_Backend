@@ -1,5 +1,9 @@
 // File: app.js
 
+const authRoutes = require('./routers/authRoutes');
+const farmerAuthRoutes = require('./routers/farmerAuthRoutes');
+const farmRoutes = require('./routers/farmRoutes');
+const dataRoutes = require('./routers/dataRoutes');
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -42,6 +46,11 @@ app.get("/health", (req, res) => {
 });
 app.use("/api/orders", orderRoutes);
 app.use("/api/expenses", expenseRoutes);
+
+// 1. Farmer routes
+app.use('/api/farmer-auth', farmerAuthRoutes); 
+app.use('/api/farm', farmRoutes);
+app.use('/api/data', dataRoutes);
 
 // Database Connection
 mongoose
