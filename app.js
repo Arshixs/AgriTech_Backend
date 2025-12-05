@@ -10,9 +10,9 @@ const vendorAuthRoutes = require("./routers/vendorAuthRoutes");
 const vendorProductRoutes = require("./routers/vendorProductRoutes");
 const buyerAuthRoutes = require("./routers/buyerAuthRoutes");
 const orderRoutes = require("./routers/orderRoutes");
+const expenseRoutes = require("./routers/expenseRoutes");
 const govtAuthRoutes = require("./routers/govtAuthRoutes");
 const mspRoutes = require("./routers/mspRoutes");
-
 const app = express();
 
 // Middleware
@@ -41,6 +41,7 @@ app.get("/health", (req, res) => {
   });
 });
 app.use("/api/orders", orderRoutes);
+app.use("/api/expenses", expenseRoutes);
 
 // Database Connection
 mongoose
