@@ -9,6 +9,7 @@ const authRoutes = require("./routers/authRoutes");
 const vendorAuthRoutes = require("./routers/vendorAuthRoutes");
 const vendorProductRoutes = require("./routers/vendorProductRoutes");
 const buyerAuthRoutes = require("./routers/buyerAuthRoutes");
+const orderRoutes = require("./routers/orderRoutes");
 const app = express();
 
 // Middleware
@@ -36,6 +37,7 @@ app.get("/health", (req, res) => {
     uptime: process.uptime(),
   });
 });
+app.use("/api/orders", orderRoutes);
 
 // Database Connection
 mongoose
