@@ -9,6 +9,7 @@ const client = twilio(accountSid, authToken);
 
 const sendSMS = async (to, body) => {
   try {
+    
     const message = await client.messages.create({
       body: body,
       from: twilioPhoneNumber,
