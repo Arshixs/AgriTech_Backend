@@ -9,6 +9,7 @@ const authRoutes = require("./routers/authRoutes");
 const vendorAuthRoutes = require("./routers/vendorAuthRoutes");
 const vendorProductRoutes = require("./routers/vendorProductRoutes");
 const buyerAuthRoutes = require("./routers/buyerAuthRoutes");
+const orderRoutes = require("./routers/orderRoutes");
 const govtAuthRoutes = require("./routers/govtAuthRoutes");
 const mspRoutes = require("./routers/mspRoutes");
 
@@ -39,6 +40,7 @@ app.get("/health", (req, res) => {
     uptime: process.uptime(),
   });
 });
+app.use("/api/orders", orderRoutes);
 
 // Database Connection
 mongoose
