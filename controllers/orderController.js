@@ -160,8 +160,7 @@ exports.updateOrderStatus = async (req, res) => {
     const order = await Order.findOne({ _id: orderId, vendor: vendorId });
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    // Stock Logic for Purchases
-    // Critical Note: Since 'pending' orders no longer block the calendar, it is possible for you to receive conflicting requests (e.g., two people asking for the last tractor on the same day). Be careful when accepting orders—once you accept one, you should manually reject the overlapping ones, or we can add a validation check to the "Accept" function in the future.
+    // A. Stock Logic for Purchases
     if (status === "accepted" && order.status === "pending" && order.orderType === "purchase") {
       const product = await VendorProduct.findById(order.product);
       if (product) {
@@ -170,6 +169,46 @@ exports.updateOrderStatus = async (req, res) => {
         }
         product.stock -= order.quantity;
         await product.save();
+      }
+    }
+
+    // B. Validation Logic for Rentals (Prevent Double Booking on Accept)
+    if (status === "accepted" && order.status === "pending" && order.orderType === "rental") {
+      const product = await VendorProduct.findById(order.product);
+      if (!product) return res.status(404).json({ message: "Product details not found" });
+
+      const start = new Date(order.rentalDuration.startDate);
+      const end = new Date(order.rentalDuration.endDate);
+
+      // 1. Find OTHER accepted orders that overlap
+      const conflictingOrders = await Order.find({
+        product: order.product,
+        orderType: 'rental',
+        status: 'accepted',
+        _id: { $ne: order._id }, // Exclude current order
+        'rentalDuration.startDate': { $lte: end },
+        'rentalDuration.endDate': { $gte: start }
+      });
+
+      // 2. Day-by-day check
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        let usedStockOnDay = 0;
+
+        for (const existingOrder of conflictingOrders) {
+          const oStart = new Date(existingOrder.rentalDuration.startDate);
+          const oEnd = new Date(existingOrder.rentalDuration.endDate);
+
+          if (d >= oStart && d <= oEnd) {
+            usedStockOnDay += existingOrder.quantity;
+          }
+        }
+
+        // If accepting this order pushes usage over the limit, Reject it.
+        if (usedStockOnDay + order.quantity > product.stock) {
+          return res.status(400).json({ 
+            message: `Cannot accept: Conflict on ${d.toDateString()}. Stock limit would be exceeded.` 
+          });
+        }
       }
     }
 
