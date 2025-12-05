@@ -160,9 +160,8 @@ exports.updateOrderStatus = async (req, res) => {
     const order = await Order.findOne({ _id: orderId, vendor: vendorId });
     if (!order) return res.status(404).json({ message: "Order not found" });
 
-    // Stock Logic
-    // We PERMANENTLY decrease stock only for 'purchase'.
-    // For 'rental', stock availability was checked via calendar during creation.
+    // Stock Logic for Purchases
+    // Critical Note: Since 'pending' orders no longer block the calendar, it is possible for you to receive conflicting requests (e.g., two people asking for the last tractor on the same day). Be careful when accepting orders—once you accept one, you should manually reject the overlapping ones, or we can add a validation check to the "Accept" function in the future.
     if (status === "accepted" && order.status === "pending" && order.orderType === "purchase") {
       const product = await VendorProduct.findById(order.product);
       if (product) {
