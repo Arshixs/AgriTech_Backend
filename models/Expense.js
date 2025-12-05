@@ -1,36 +1,39 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const expenseSchema = new mongoose.Schema({
-    farmerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Farmer',
-        required: true,
+const expenseSchema = new mongoose.Schema(
+  {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      index: true, // Faster queries
     },
-    fieldId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Field',
-        required: false,
+    userType: {
+      type: String,
+      required: true,
+      // This allows the model to work for ANY role
+      enum: ["farmer", "vendor", "buyer", "government employee"],
+    },
+    title: {
+      type: String,
+      required: true,
+      trim: true,
     },
     category: {
-        type: String,
-        enum: ['Seed', 'Fertilizer', 'Pesticide', 'Labor', 'Fuel', 'Machinery', 'Other'],
-        required: true,
-    },
-    item: {
-        type: String, // Specific item name (e.g., 'Urea', 'Certified Rice Seed')
-        required: true,
+      type: String,
+      required: true,
+      trim: true,
     },
     amount: {
-        type: Number, // Total cost
-        required: true,
+      type: Number,
+      required: true,
+      min: 0,
     },
     date: {
-        type: Date,
-        default: Date.now,
+      type: Date,
+      default: Date.now,
     },
-    quantity: {
-        type: Number,
-    }
-}, { timestamps: true });
+  },
+  { timestamps: true }
+);
 
-module.exports = mongoose.model('Expense', expenseSchema);
+module.exports = mongoose.model("Expense", expenseSchema);

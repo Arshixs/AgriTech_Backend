@@ -1,20 +1,27 @@
 const app = require("./app"); // Import the configured app
 const http = require("http");
+require("dotenv").config();
+// // Get port from environment and store in Express.
+// const port = process.env.PORT || 5000;
+// app.set("port", port);
 
-// Get port from environment and store in Express.
-const port = process.env.PORT || 5000;
-app.set("port", port);
 
 // Create HTTP server.
-const server = http.createServer(app);
+// const server = http.createServer(app);
 
-// Listen on provided port, on all network interfaces.
-server.listen(port,"0.0.0.0");
+// // Listen on provided port, on all network interfaces.
+// server.listen(port,"0.0.0.0");
 
-server.on("listening", () => {
-  const addr = server.address();
-  const bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
-  console.log("Listening on " + bind);
+// server.on("listening", () => {
+//   const addr = server.address();
+//   const bind = typeof addr === "string" ? "pipe " + addr : "port " + addr.port;
+//   console.log("Listening on " + bind);
+  
+// });
+
+const port = process.env.PORT;
+const server = app.listen(port, () => {
+  console.log(`App running on port ${port} by ${process.env.USER}`);
 });
 
 server.on("error", (error) => {
