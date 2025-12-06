@@ -1,6 +1,5 @@
 // File: app.js
 
-const authRoutes = require('./routers/authRoutes');
 const farmerAuthRoutes = require('./routers/farmerAuthRoutes');
 const farmRoutes = require('./routers/farmRoutes');
 const dataRoutes = require('./routers/dataRoutes');
