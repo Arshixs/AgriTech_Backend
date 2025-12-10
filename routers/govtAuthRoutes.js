@@ -7,6 +7,7 @@ const {
   verifyOtp,
   getProfile,
   updateProfile,
+  updateGovtProfile,
 } = require("../controllers/govtAuthController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -16,6 +17,6 @@ router.post("/verify-otp", verifyOtp);
 
 // Protected Routes
 router.get("/profile", protect, getProfile);
-router.post("/update-profile", protect, updateProfile);
+router.post("/update-profile", protect, updateGovtProfile);
 
 module.exports = router;
