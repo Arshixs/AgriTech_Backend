@@ -143,3 +143,98 @@ exports.updateProfile = async (req, res) => {
     res.status(500).json({ message: "Server Error updating profile" });
   }
 };
+
+
+exports.updateGovtProfile = async (req, res) => {
+  try {
+    const govtId = req.user && req.user.govtId;
+    console.log(req.body);
+    if (!govtId || (govtId!==req.body.employeeId)) return res.status(401).json({ message: "Unauthorized" });
+
+    // Allowed updatable fields
+    const allowed = [
+      "name",
+      "employeeId",
+      "email",
+      "homeAddress",
+      "maritalStatus",
+      "accountNumber",
+      "IFSCCode",
+      "phone",
+    ];
+
+    console.log(req.body , req.user)
+    // Build update object using only provided allowed fields
+    const updates = {};
+    allowed.forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    if (Object.keys(updates).length === 0) {
+      return res
+        .status(400)
+        .json({ message: "No valid fields provided to update" });
+    }
+
+    // // If email is being updated, ensure uniqueness
+    // if (updates.email) {
+    //   const existing = await GovtEmployee.findOne({
+    //     email: updates.email,
+    //     _id: { $ne: govtId },
+    //   });
+    //   if (existing) {
+    //     return res.status(400).json({ message: "Email already in use" });
+    //   }
+    // }
+
+    const employee = await GovtEmployee.findByIdAndUpdate(
+      govtId,
+      { $set: updates },
+      { new: true, runValidators: true, context: "query" }
+    );
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    return res.status(200).json({
+      message: "Profile updated successfully",
+      employee,
+    });
+  } catch (error) {
+    console.error("updateGovtProfile error:", error);
+    // Handle duplicate key errors from MongoDB
+    if (error.code && error.code === 11000) {
+      const key = Object.keys(error.keyPattern || {})[0] || "field";
+      return res.status(400).json({ message: `${key} already exists` });
+    }
+    return res.status(500).json({ message: "Server error updating profile" });
+  }
+};
+
+// exports.updateGovtProfile = async (req, res) => {
+//   try {
+//     const { govtId } = req.user;
+//     const { name, employeeId, email, homeAddress, maritalStatus,accountNumber,IFSCCode } = req.body;
+
+//     const employee = await GovtEmployee.findByIdAndUpdate(
+//       govtId,
+//       { name, employeeId, department, designation },
+//       { new: true, runValidators: true }
+//     );
+
+//     if (!employee) {
+//       return res.status(404).json({ message: "Employee not found" });
+//     }
+
+//     res.status(200).json({
+//       message: "Profile updated successfully",
+//       employee,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ message: "Server Error updating profile" });
+//   }
+// };
