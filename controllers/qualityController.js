@@ -7,54 +7,54 @@ const QRCode = require("qrcode");
 // ============ FARMER CONTROLLERS ============
 
 // 1. CREATE QUALITY INSPECTION REQUEST
-exports.createQualityRequest = async (req, res) => {
-  try {
-    const { userId } = req.user; // Farmer ID from JWT
-    const { fieldId, cropName, quantity, unit, harvestDate, storageLocation } =
-      req.body;
+// exports.createQualityRequest = async (req, res) => {
+//   try {
+//     const { userId } = req.user; // Farmer ID from JWT
+//     const { fieldId, cropName, quantity, unit, harvestDate, storageLocation } =
+//       req.body;
 
-    // Validate field belongs to farmer
-    const field = await Field.findOne({ _id: fieldId, farmerId: userId });
-    if (!field) {
-      return res
-        .status(404)
-        .json({ message: "Field not found or does not belong to you" });
-    }
+//     // Validate field belongs to farmer
+//     const field = await Field.findOne({ _id: fieldId, farmerId: userId });
+//     if (!field) {
+//       return res
+//         .status(404)
+//         .json({ message: "Field not found or does not belong to you" });
+//     }
 
-    // Check if there's already a pending request for this field
-    const existingRequest = await QualityRequest.findOne({
-      fieldId,
-      status: { $in: ["pending", "in-progress"] },
-    });
+//     // Check if there's already a pending request for this field
+//     const existingRequest = await QualityRequest.findOne({
+//       fieldId,
+//       status: { $in: ["pending", "in-progress"] },
+//     });
 
-    if (existingRequest) {
-      return res.status(400).json({
-        message: "A quality inspection request already exists for this field",
-      });
-    }
+//     if (existingRequest) {
+//       return res.status(400).json({
+//         message: "A quality inspection request already exists for this field",
+//       });
+//     }
 
-    const qualityRequest = new QualityRequest({
-      farmerId: userId,
-      fieldId,
-      cropName,
-      quantity,
-      unit,
-      harvestDate,
-      storageLocation,
-      status: "pending",
-    });
+//     const qualityRequest = new QualityRequest({
+//       farmerId: userId,
+//       fieldId,
+//       cropName,
+//       quantity,
+//       unit,
+//       harvestDate,
+//       storageLocation,
+//       status: "pending",
+//     });
 
-    await qualityRequest.save();
+//     await qualityRequest.save();
 
-    res.status(201).json({
-      message: "Quality inspection request created successfully",
-      request: qualityRequest,
-    });
-  } catch (error) {
-    console.error("Create Quality Request Error:", error);
-    res.status(500).json({ message: "Server error creating quality request" });
-  }
-};
+//     res.status(201).json({
+//       message: "Quality inspection request created successfully",
+//       request: qualityRequest,
+//     });
+//   } catch (error) {
+//     console.error("Create Quality Request Error:", error);
+//     res.status(500).json({ message: "Server error creating quality request" });
+//   }
+// };
 
 // 2. GET FARMER'S QUALITY REQUESTS
 exports.getFarmerRequests = async (req, res) => {
@@ -64,6 +64,7 @@ exports.getFarmerRequests = async (req, res) => {
     const requests = await QualityRequest.find({ farmerId: userId })
       .populate("fieldId", "name area")
       .populate("assignedOfficer", "name employeeId")
+      .populate("cropId","cropName")
       .sort({ createdAt: -1 });
 
     res.status(200).json({ requests });
@@ -84,7 +85,8 @@ exports.getRequestDetails = async (req, res) => {
       farmerId: userId,
     })
       .populate("fieldId", "name area crop")
-      .populate("assignedOfficer", "name employeeId phone");
+      .populate("assignedOfficer", "name employeeId phone")
+      .populate("cropId","cropName")
 
     if (!request) {
       return res.status(404).json({ message: "Request not found" });
@@ -106,9 +108,11 @@ exports.getPendingRequests = async (req, res) => {
       status: { $in: ["pending", "in-progress"] },
     })
       .populate("farmerId", "name phone address")
-      .populate("fieldId", "name area location")
+      .populate("fieldId", "area")
+      .populate("cropId","cropName")
       .sort({ createdAt: 1 }); // Oldest first
 
+      console.log(requests);
     res.status(200).json({ requests });
   } catch (error) {
     console.error("Get Pending Requests Error:", error);
@@ -123,7 +127,8 @@ exports.searchRequestByLotId = async (req, res) => {
 
     const request = await QualityRequest.findById(lotId)
       .populate("farmerId", "name phone address adharNumber")
-      .populate("fieldId", "name area crop soilType");
+      .populate("fieldId", "name area crop soilType")
+      .populate("cropId","cropName");
 
     if (!request) {
       return res.status(404).json({ message: "Request not found" });
@@ -167,77 +172,77 @@ exports.assignInspection = async (req, res) => {
   }
 };
 
-// 7. SUBMIT QUALITY GRADING
-exports.submitGrading = async (req, res) => {
-  try {
-    const { govtId } = req.user;
-    const { requestId } = req.params;
-    const {
-      grade,
-      qualityParams,
-      gradingNotes,
-      rejectionReason,
-      inspectionDate,
-    } = req.body;
+// // 7. SUBMIT QUALITY GRADING
+// exports.submitGrading = async (req, res) => {
+//   try {
+//     const { govtId } = req.user;
+//     const { requestId } = req.params;
+//     const {
+//       grade,
+//       qualityParams,
+//       gradingNotes,
+//       rejectionReason,
+//       inspectionDate,
+//     } = req.body;
 
-    const request = await QualityRequest.findById(requestId);
-    if (!request) {
-      return res.status(404).json({ message: "Request not found" });
-    }
+//     const request = await QualityRequest.findById(requestId);
+//     if (!request) {
+//       return res.status(404).json({ message: "Request not found" });
+//     }
 
-    // Verify officer is assigned
-    if (request.assignedOfficer.toString() !== govtId) {
-      return res
-        .status(403)
-        .json({ message: "You are not assigned to this request" });
-    }
+//     // Verify officer is assigned
+//     if (request.assignedOfficer.toString() !== govtId) {
+//       return res
+//         .status(403)
+//         .json({ message: "You are not assigned to this request" });
+//     }
 
-    // Update grading information
-    request.grade = grade;
-    request.qualityParams = qualityParams;
-    request.gradingNotes = gradingNotes;
-    request.inspectionDate = inspectionDate || new Date();
+//     // Update grading information
+//     request.grade = grade;
+//     request.qualityParams = qualityParams;
+//     request.gradingNotes = gradingNotes;
+//     request.inspectionDate = inspectionDate || new Date();
 
-    if (grade === "Rejected") {
-      request.rejectionReason = rejectionReason;
-      request.status = "rejected";
-    } else {
-      request.status = "approved";
+//     if (grade === "Rejected") {
+//       request.rejectionReason = rejectionReason;
+//       request.status = "rejected";
+//     } else {
+//       request.status = "approved";
 
-      // Generate QR Code for certificate
-      const certificateData = {
-        certificateNumber: request.certificateNumber,
-        crop: request.cropName,
-        grade: grade,
-        quantity: `${request.quantity} ${request.unit}`,
-        farmerName: request.farmerId,
-        issueDate: request.certificateIssueDate,
-      };
+//       // Generate QR Code for certificate
+//       const certificateData = {
+//         certificateNumber: request.certificateNumber,
+//         crop: request.cropName,
+//         grade: grade,
+//         quantity: `${request.quantity} ${request.unit}`,
+//         farmerName: request.farmerId,
+//         issueDate: request.certificateIssueDate,
+//       };
 
-      try {
-        const qrCode = await QRCode.toDataURL(JSON.stringify(certificateData));
-        request.certificateQRCode = qrCode;
-      } catch (qrError) {
-        console.error("QR Code generation error:", qrError);
-      }
-    }
+//       try {
+//         const qrCode = await QRCode.toDataURL(JSON.stringify(certificateData));
+//         request.certificateQRCode = qrCode;
+//       } catch (qrError) {
+//         console.error("QR Code generation error:", qrError);
+//       }
+//     }
 
-    await request.save();
+//     await request.save();
 
-    const populatedRequest = await QualityRequest.findById(requestId)
-      .populate("farmerId", "name phone")
-      .populate("fieldId", "name area")
-      .populate("assignedOfficer", "name employeeId");
+//     const populatedRequest = await QualityRequest.findById(requestId)
+//       .populate("farmerId", "name phone")
+//       .populate("fieldId", "name area")
+//       .populate("assignedOfficer", "name employeeId");
 
-    res.status(200).json({
-      message: "Grading submitted successfully",
-      request: populatedRequest,
-    });
-  } catch (error) {
-    console.error("Submit Grading Error:", error);
-    res.status(500).json({ message: "Server error submitting grading" });
-  }
-};
+//     res.status(200).json({
+//       message: "Grading submitted successfully",
+//       request: populatedRequest,
+//     });
+//   } catch (error) {
+//     console.error("Submit Grading Error:", error);
+//     res.status(500).json({ message: "Server error submitting grading" });
+//   }
+// };
 
 // 8. GET OFFICER'S ASSIGNED REQUESTS
 exports.getOfficerRequests = async (req, res) => {
@@ -293,5 +298,129 @@ exports.getGradingStats = async (req, res) => {
   } catch (error) {
     console.error("Get Grading Stats Error:", error);
     res.status(500).json({ message: "Server error fetching stats" });
+  }
+};
+
+
+// ============================================
+// controllers/qualityController.js (UPDATED)
+// ============================================
+
+const CropOutput = require('../models/CropOutput');
+
+// Farmer creates quality request (UPDATED)
+exports.createQualityRequest = async (req, res) => {
+  try {
+    const { userId } = req.user;
+    const { cropOutputId, storageLocation } = req.body;
+    
+    // Get crop output
+    const cropOutput = await CropOutput.findOne({ 
+      _id: cropOutputId, 
+      farmerId: userId 
+    }).populate('cropId fieldId');
+    
+    if (!cropOutput) {
+      return res.status(404).json({ message: 'Crop output not found' });
+    }
+    
+    if (cropOutput.status === 'quality-pending') {
+      return res.status(400).json({ message: 'Quality request already exists for this output' });
+    }
+    
+    // Create quality request
+    const qualityRequest = new QualityRequest({
+      farmerId: userId,
+      fieldId: cropOutput.fieldId._id,
+      cropOutputId: cropOutput._id,
+      cropId: cropOutput.cropId._id,
+      quantity: cropOutput.quantity,
+      unit: cropOutput.unit,
+      harvestDate: cropOutput.harvestDate,
+      storageLocation: storageLocation || cropOutput.storageLocation,
+    });
+    
+    await qualityRequest.save();
+    
+    // Update crop output status
+    cropOutput.status = 'quality-pending';
+    cropOutput.qualityRequestId = qualityRequest._id;
+    await cropOutput.save();
+    
+    res.status(201).json({ 
+      message: 'Quality request created successfully', 
+      request: qualityRequest 
+    });
+  } catch (error) {
+    console.error('Create Quality Request Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// Government submits grading (UPDATED - with lab info)
+exports.submitGrading = async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { govtId } = req.user;
+    console.log(req.user)
+    const { 
+      grade, 
+      qualityParams, 
+      gradingNotes, 
+      rejectionReason,
+      labName,
+      labLocation,
+      labCertificationNumber
+    } = req.body;
+    
+    const request = await QualityRequest.findOne({ 
+      _id: requestId, 
+      assignedOfficer: govtId
+    });
+
+    // console.log(requestId);
+    // console.log(userId);
+    
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found or not assigned to you' });
+    }
+    
+    // Update quality request
+    request.status = grade === 'Rejected' ? 'rejected' : 'approved';
+    request.grade = grade;
+    request.qualityParams = qualityParams;
+    request.gradingNotes = gradingNotes;
+    request.rejectionReason = rejectionReason;
+    request.inspectionDate = Date.now();
+    
+    // Lab information
+    request.labName = labName;
+    request.labLocation = labLocation;
+    request.labCertificationNumber = labCertificationNumber;
+    
+    // Generate certificate if approved
+    if (grade !== 'Rejected') {
+      request.certificateNumber = `CERT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      request.certificateIssueDate = Date.now();
+      // Generate QR code (placeholder URL)
+      request.certificateQRCode = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${request.certificateNumber}`;
+    }
+    
+    await request.save();
+    
+    // Update crop output status
+    const cropOutput = await CropOutput.findById(request.cropOutputId);
+    if (cropOutput) {
+      cropOutput.status = grade === 'Rejected' ? 'quality-rejected' : 'quality-approved';
+      await cropOutput.save();
+    }
+    
+    res.status(200).json({ 
+      message: 'Grading submitted successfully', 
+      request 
+    });
+  } catch (error) {
+    console.error('Submit Grading Error:', error);
+    res.status(500).json({ message: 'Server Error' });
   }
 };

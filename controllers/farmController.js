@@ -52,6 +52,57 @@ exports.getFarmerFields = async (req, res) => {
     }
 };
 
+
+// controllers/fieldController.js - ADD THIS METHOD
+
+const CropMaster = require('../models/CropMaster');
+
+// ... (keep existing methods)
+
+// Update field crop (plant a crop)
+exports.updateFieldCrop = async (req, res) => {
+  try {
+    const { fieldId } = req.params;
+    const { userId } = req.user;
+    const { cropId, plantedDate, expectedHarvest } = req.body;
+    
+    // Validate crop exists
+    const crop = await CropMaster.findById(cropId);
+    if (!crop) {
+      return res.status(404).json({ message: 'Crop not found' });
+    }
+    
+    // Find and update field
+    const field = await Field.findOneAndUpdate(
+      { _id: fieldId, farmerId: userId },
+      {
+        cropId,
+        plantedDate: plantedDate || Date.now(),
+        expectedHarvest,
+        status: 'Growing',
+        health: 85, // Initial health score
+      },
+      { new: true }
+    ).populate('cropId');
+    
+    if (!field) {
+      return res.status(404).json({ message: 'Field not found' });
+    }
+    
+    res.status(200).json({ 
+      message: 'Crop planted successfully', 
+      field 
+    });
+  } catch (error) {
+    console.error('Update Field Crop Error:', error);
+    res.status(500).json({ message: 'Server Error' });
+  }
+};
+
+// routes/fieldRoutes.js - ADD THIS ROUTE
+// PUT /api/farm/fields/:fieldId/crop
+
+
 // PUT /api/farm/fields/:id
 exports.updateField = async (req, res) => {
     try {

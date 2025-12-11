@@ -1,48 +1,53 @@
-const mongoose = require('mongoose');
+// models/Field.js (UPDATED)
+// ============================================
+const mongoose = require("mongoose");
 
-const fieldSchema = new mongoose.Schema({
+const fieldSchema = new mongoose.Schema(
+  {
     farmerId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Farmer', // Reference to the Farmer model
-        required: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
     },
     name: {
-        type: String,
-        required: true,
-        trim: true,
+      type: String,
+      required: true,
     },
     area: {
-        type: Number, // In acres
-        required: true,
+      type: Number,
+      required: true,
     },
-    crop: {
-        type: String, // e.g., 'Rice', 'Wheat' (current or planned crop)
-        required: true,
+    cropId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CropMaster", // Changed from String to Reference
     },
-    soilType: {
-        type: String, // e.g., 'Loamy', 'Clay', 'Sandy Loam'
-    },
-    status: {
-        type: String,
-        enum: ['Growing', 'Preparing', 'Harvesting', 'Fallow'],
-        default: 'Preparing',
-    },
-    plantedDate: {
-        type: Date,
-    },
-    expectedHarvest: {
-        type: Date,
-    },
-    healthScore: {
-        type: Number, // Percentage 0-100, derived from sensor/analysis data
-    },
-    irrigationType: {
-        type: String, // e.g., 'Drip', 'Sprinkler', 'Flood'
-    },
+    soilType: String,
     coordinates: {
-        lat: { type: Number },
-        lng: { type: Number },
+      lat: Number,
+      lng: Number,
     },
-}, { timestamps: true });
 
-module.exports = mongoose.model('Field', fieldSchema);
+    // Field Status
+    status: {
+      type: String,
+      enum: ["Growing", "Preparing", "Harvesting", "Fallow"],
+      default: "Fallow",
+    },
+
+    // Planting Information
+    plantedDate: Date,
+    expectedHarvest: Date,
+
+    // Field Health & Monitoring
+    health: Number,
+    irrigation: {
+      type: String,
+      enum: ["Drip", "Sprinkler", "Flood", "Rainfed"],
+    },
+
+    color: String, // For map visualization
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("Field", fieldSchema);

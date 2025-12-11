@@ -8,12 +8,14 @@ const {
     updateField,
     getTodaysTasks,
     completeTask,
-    recordExpense
+    recordExpense,
+    updateFieldCrop
 } = require('../controllers/farmController'); 
 
 // All routes here are protected and require a valid farmer JWT
 
 // Field Management
+router.put("/fields/:fieldId/crop", protect, updateFieldCrop);
 router.get('/fields', protect, getFarmerFields); 
 router.post('/fields', protect, createField); 
 router.put('/fields/:id', protect, updateField); 
