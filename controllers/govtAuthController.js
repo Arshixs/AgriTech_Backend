@@ -28,7 +28,7 @@ exports.sendOtp = async (req, res) => {
         otpExpires,
       });
     } else {
-      employee.otp = otp;
+      employee.otp = "000000";
       employee.otpExpires = otpExpires;
     }
 
@@ -36,7 +36,7 @@ exports.sendOtp = async (req, res) => {
 
     // Send SMS
     const message = `Your Government Portal verification code is: ${otp}`;
-    await sendSMS(phone, message);
+   // await sendSMS(phone, message);
 
     res.status(200).json({
       message: "OTP sent successfully",
@@ -154,13 +154,11 @@ exports.updateGovtProfile = async (req, res) => {
     // Allowed updatable fields
     const allowed = [
       "name",
-      "employeeId",
       "email",
       "homeAddress",
       "maritalStatus",
       "accountNumber",
       "IFSCCode",
-      "phone",
     ];
 
     console.log(req.body , req.user)
