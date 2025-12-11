@@ -1,130 +1,91 @@
-// File: models/QualityRequest.js
-
 const mongoose = require("mongoose");
 
 const qualityRequestSchema = new mongoose.Schema(
   {
-    // Farmer and Field Information
     farmerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Farmer",
+      ref: "User",
       required: true,
-      index: true,
     },
     fieldId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Field",
       required: true,
     },
-
-    // Crop Details
-    cropName: {
-      type: String,
+    cropOutputId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CropOutput",
       required: true,
-      trim: true,
     },
+    cropId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "CropMaster",
+      required: true,
+    },
+
+    // Request Details (from crop output)
     quantity: {
       type: Number,
       required: true,
-      min: 0,
     },
     unit: {
       type: String,
+      enum: ["kg", "quintal", "ton"],
       required: true,
-      default: "quintal",
-      enum: ["quintal", "kg", "ton"],
     },
     harvestDate: {
       type: Date,
       required: true,
     },
+    storageLocation: String,
 
-    // Request Status
+    // Status
     status: {
       type: String,
       enum: ["pending", "in-progress", "approved", "rejected"],
       default: "pending",
     },
 
-    // Government Officer Assignment
+    // Assignment
     assignedOfficer: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "GovtEmployee",
+      ref: "User",
     },
-    inspectionDate: {
-      type: Date,
-    },
+    assignedDate: Date,
 
-    // Quality Grading Results (filled by officer)
+    // Lab Information (NEW)
+    labName: String,
+    labLocation: String,
+    labCertificationNumber: String,
+
+    // Grading Results
     grade: {
       type: String,
-      enum: ["FAQ", "A", "B", "C", "Rejected", null],
-      default: null,
+      enum: ["FAQ", "A", "B", "C", "Rejected"],
     },
-
-    // Quality Parameters (as per AGMARK standards)
     qualityParams: {
-      moisture: { type: Number }, // Percentage
-      foreignMatter: { type: Number }, // Percentage
-      damagedGrains: { type: Number }, // Percentage
-      discoloredGrains: { type: Number }, // Percentage
-      weevilDamage: { type: Number }, // Percentage
-      otherDefects: { type: String },
+      moisture: Number,
+      foreignMatter: Number,
+      damagedGrains: Number,
+      discoloredGrains: Number,
+      weevilDamage: Number,
+      otherDefects: String,
     },
-
-    // Grading Details
-    gradingNotes: {
-      type: String,
-    },
-    rejectionReason: {
-      type: String,
-    },
+    gradingNotes: String,
+    rejectionReason: String,
+    inspectionDate: Date,
 
     // Certificate
-    certificateNumber: {
-      type: String,
-      unique: true,
-      sparse: true, // Allows null values
-    },
-    certificateIssueDate: {
-      type: Date,
-    },
-    certificateQRCode: {
-      type: String, // Base64 or URL
-    },
-
-    // Location
-    storageLocation: {
-      type: String,
-    },
+    certificateNumber: String,
+    certificateQRCode: String,
+    certificateIssueDate: Date,
   },
   { timestamps: true }
 );
 
-// Generate unique certificate number before save
-qualityRequestSchema.pre("save", function (next) {
-  try {
-    if (
-      this.isModified("grade") &&
-      this.grade &&
-      this.grade !== "Rejected" &&
-      !this.certificateNumber
-    ) {
-      const year = new Date().getFullYear();
-      const month = String(new Date().getMonth() + 1).padStart(2, "0");
-      const random = Math.floor(1000 + Math.random() * 9000);
-      this.certificateNumber = `QC${year}${month}${random}`;
-      this.certificateIssueDate = new Date();
-    }
-    //next();
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Indexes for faster queries
-qualityRequestSchema.index({ farmerId: 1, status: 1 });
-qualityRequestSchema.index({ assignedOfficer: 1, status: 1 });
-qualityRequestSchema.index({ certificateNumber: 1 });
+// Indexes
+qualityRequestSchema.index({ status: 1 });
+qualityRequestSchema.index({ farmerId: 1 });
+qualityRequestSchema.index({ assignedOfficer: 1 });
 
 module.exports = mongoose.model("QualityRequest", qualityRequestSchema);
