@@ -26,7 +26,10 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );
+const qualityRoutes = require("./routers/qualityRoutes");
 
+// // Add this with other route declarations:
+app.use("/api/quality", qualityRoutes);
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
