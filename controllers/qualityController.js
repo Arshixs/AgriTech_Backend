@@ -1,62 +1,12 @@
-// File: controllers/qualityController.js
-
+// controllers/qualityController.js - UPDATED FOR SEPARATE STATUS
 const QualityRequest = require("../models/QualityRequest");
 const Field = require("../models/Field");
-const QRCode = require("qrcode");
+const CropOutput = require("../models/CropOutput");
+const Sale= require("../models/Sale")
 
 // ============ FARMER CONTROLLERS ============
 
-// 1. CREATE QUALITY INSPECTION REQUEST
-// exports.createQualityRequest = async (req, res) => {
-//   try {
-//     const { userId } = req.user; // Farmer ID from JWT
-//     const { fieldId, cropName, quantity, unit, harvestDate, storageLocation } =
-//       req.body;
-
-//     // Validate field belongs to farmer
-//     const field = await Field.findOne({ _id: fieldId, farmerId: userId });
-//     if (!field) {
-//       return res
-//         .status(404)
-//         .json({ message: "Field not found or does not belong to you" });
-//     }
-
-//     // Check if there's already a pending request for this field
-//     const existingRequest = await QualityRequest.findOne({
-//       fieldId,
-//       status: { $in: ["pending", "in-progress"] },
-//     });
-
-//     if (existingRequest) {
-//       return res.status(400).json({
-//         message: "A quality inspection request already exists for this field",
-//       });
-//     }
-
-//     const qualityRequest = new QualityRequest({
-//       farmerId: userId,
-//       fieldId,
-//       cropName,
-//       quantity,
-//       unit,
-//       harvestDate,
-//       storageLocation,
-//       status: "pending",
-//     });
-
-//     await qualityRequest.save();
-
-//     res.status(201).json({
-//       message: "Quality inspection request created successfully",
-//       request: qualityRequest,
-//     });
-//   } catch (error) {
-//     console.error("Create Quality Request Error:", error);
-//     res.status(500).json({ message: "Server error creating quality request" });
-//   }
-// };
-
-// 2. GET FARMER'S QUALITY REQUESTS
+// GET FARMER'S QUALITY REQUESTS
 exports.getFarmerRequests = async (req, res) => {
   try {
     const { userId } = req.user;
@@ -64,7 +14,7 @@ exports.getFarmerRequests = async (req, res) => {
     const requests = await QualityRequest.find({ farmerId: userId })
       .populate("fieldId", "name area")
       .populate("assignedOfficer", "name employeeId")
-      .populate("cropId","cropName")
+      .populate("cropId", "cropName")
       .sort({ createdAt: -1 });
 
     res.status(200).json({ requests });
@@ -74,7 +24,7 @@ exports.getFarmerRequests = async (req, res) => {
   }
 };
 
-// 3. GET SINGLE REQUEST DETAILS (with certificate)
+// GET SINGLE REQUEST DETAILS (with certificate)
 exports.getRequestDetails = async (req, res) => {
   try {
     const { userId } = req.user;
@@ -86,7 +36,7 @@ exports.getRequestDetails = async (req, res) => {
     })
       .populate("fieldId", "name area crop")
       .populate("assignedOfficer", "name employeeId phone")
-      .populate("cropId","cropName")
+      .populate("cropId", "cropName");
 
     if (!request) {
       return res.status(404).json({ message: "Request not found" });
@@ -101,18 +51,17 @@ exports.getRequestDetails = async (req, res) => {
 
 // ============ GOVERNMENT OFFICER CONTROLLERS ============
 
-// 4. GET ALL PENDING REQUESTS (for officers)
+// GET ALL PENDING REQUESTS (for officers)
 exports.getPendingRequests = async (req, res) => {
   try {
     const requests = await QualityRequest.find({
       status: { $in: ["pending", "in-progress"] },
     })
       .populate("farmerId", "name phone address")
-      .populate("fieldId", "area")
-      .populate("cropId","cropName")
-      .sort({ createdAt: 1 }); // Oldest first
+      .populate("fieldId", "area name")
+      .populate("cropId", "cropName")
+      .sort({ createdAt: 1 });
 
-      console.log(requests);
     res.status(200).json({ requests });
   } catch (error) {
     console.error("Get Pending Requests Error:", error);
@@ -120,7 +69,7 @@ exports.getPendingRequests = async (req, res) => {
   }
 };
 
-// 5. SEARCH REQUEST BY LOT ID
+// SEARCH REQUEST BY LOT ID
 exports.searchRequestByLotId = async (req, res) => {
   try {
     const { lotId } = req.params;
@@ -128,7 +77,7 @@ exports.searchRequestByLotId = async (req, res) => {
     const request = await QualityRequest.findById(lotId)
       .populate("farmerId", "name phone address adharNumber")
       .populate("fieldId", "name area crop soilType")
-      .populate("cropId","cropName");
+      .populate("cropId", "cropName");
 
     if (!request) {
       return res.status(404).json({ message: "Request not found" });
@@ -141,7 +90,7 @@ exports.searchRequestByLotId = async (req, res) => {
   }
 };
 
-// 6. ASSIGN INSPECTION TO OFFICER
+// ASSIGN INSPECTION TO OFFICER
 exports.assignInspection = async (req, res) => {
   try {
     const { govtId } = req.user;
@@ -172,87 +121,18 @@ exports.assignInspection = async (req, res) => {
   }
 };
 
-// // 7. SUBMIT QUALITY GRADING
-// exports.submitGrading = async (req, res) => {
-//   try {
-//     const { govtId } = req.user;
-//     const { requestId } = req.params;
-//     const {
-//       grade,
-//       qualityParams,
-//       gradingNotes,
-//       rejectionReason,
-//       inspectionDate,
-//     } = req.body;
-
-//     const request = await QualityRequest.findById(requestId);
-//     if (!request) {
-//       return res.status(404).json({ message: "Request not found" });
-//     }
-
-//     // Verify officer is assigned
-//     if (request.assignedOfficer.toString() !== govtId) {
-//       return res
-//         .status(403)
-//         .json({ message: "You are not assigned to this request" });
-//     }
-
-//     // Update grading information
-//     request.grade = grade;
-//     request.qualityParams = qualityParams;
-//     request.gradingNotes = gradingNotes;
-//     request.inspectionDate = inspectionDate || new Date();
-
-//     if (grade === "Rejected") {
-//       request.rejectionReason = rejectionReason;
-//       request.status = "rejected";
-//     } else {
-//       request.status = "approved";
-
-//       // Generate QR Code for certificate
-//       const certificateData = {
-//         certificateNumber: request.certificateNumber,
-//         crop: request.cropName,
-//         grade: grade,
-//         quantity: `${request.quantity} ${request.unit}`,
-//         farmerName: request.farmerId,
-//         issueDate: request.certificateIssueDate,
-//       };
-
-//       try {
-//         const qrCode = await QRCode.toDataURL(JSON.stringify(certificateData));
-//         request.certificateQRCode = qrCode;
-//       } catch (qrError) {
-//         console.error("QR Code generation error:", qrError);
-//       }
-//     }
-
-//     await request.save();
-
-//     const populatedRequest = await QualityRequest.findById(requestId)
-//       .populate("farmerId", "name phone")
-//       .populate("fieldId", "name area")
-//       .populate("assignedOfficer", "name employeeId");
-
-//     res.status(200).json({
-//       message: "Grading submitted successfully",
-//       request: populatedRequest,
-//     });
-//   } catch (error) {
-//     console.error("Submit Grading Error:", error);
-//     res.status(500).json({ message: "Server error submitting grading" });
-//   }
-// };
-
-// 8. GET OFFICER'S ASSIGNED REQUESTS
+// GET OFFICER'S ASSIGNED REQUESTS
 exports.getOfficerRequests = async (req, res) => {
   try {
     const { govtId } = req.user;
+    // console.log(requests);
 
     const requests = await QualityRequest.find({ assignedOfficer: govtId })
       .populate("farmerId", "name phone address")
       .populate("fieldId", "name area")
       .sort({ createdAt: -1 });
+
+    console.log(requests);
 
     res.status(200).json({ requests });
   } catch (error) {
@@ -261,7 +141,7 @@ exports.getOfficerRequests = async (req, res) => {
   }
 };
 
-// 9. GET GRADING STATISTICS (for dashboard)
+// GET GRADING STATISTICS (for dashboard)
 exports.getGradingStats = async (req, res) => {
   try {
     const { govtId } = req.user;
@@ -301,33 +181,31 @@ exports.getGradingStats = async (req, res) => {
   }
 };
 
-
-// ============================================
-// controllers/qualityController.js (UPDATED)
-// ============================================
-
-const CropOutput = require('../models/CropOutput');
+// ============ CREATE & SUBMIT GRADING ============
 
 // Farmer creates quality request (UPDATED)
 exports.createQualityRequest = async (req, res) => {
   try {
     const { userId } = req.user;
     const { cropOutputId, storageLocation } = req.body;
-    
+
     // Get crop output
-    const cropOutput = await CropOutput.findOne({ 
-      _id: cropOutputId, 
-      farmerId: userId 
-    }).populate('cropId fieldId');
-    
+    const cropOutput = await CropOutput.findOne({
+      _id: cropOutputId,
+      farmerId: userId,
+    }).populate("cropId fieldId");
+
     if (!cropOutput) {
-      return res.status(404).json({ message: 'Crop output not found' });
+      return res.status(404).json({ message: "Crop output not found" });
     }
-    
-    if (cropOutput.status === 'quality-pending') {
-      return res.status(400).json({ message: 'Quality request already exists for this output' });
+
+    // Check if quality request already exists
+    if (cropOutput.qualityStatus === "pending") {
+      return res
+        .status(400)
+        .json({ message: "Quality request already exists for this output" });
     }
-    
+
     // Create quality request
     const qualityRequest = new QualityRequest({
       farmerId: userId,
@@ -339,88 +217,105 @@ exports.createQualityRequest = async (req, res) => {
       harvestDate: cropOutput.harvestDate,
       storageLocation: storageLocation || cropOutput.storageLocation,
     });
-    
+
     await qualityRequest.save();
-    
-    // Update crop output status
-    cropOutput.status = 'quality-pending';
+
+    // Update crop output QUALITY STATUS only
+    cropOutput.qualityStatus = "pending";
     cropOutput.qualityRequestId = qualityRequest._id;
     await cropOutput.save();
-    
-    res.status(201).json({ 
-      message: 'Quality request created successfully', 
-      request: qualityRequest 
+
+    res.status(201).json({
+      message: "Quality request created successfully",
+      request: qualityRequest,
     });
   } catch (error) {
-    console.error('Create Quality Request Error:', error);
-    res.status(500).json({ message: 'Server Error' });
+    console.error("Create Quality Request Error:", error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
 
-// Government submits grading (UPDATED - with lab info)
+// Government submits grading (UPDATED)
 exports.submitGrading = async (req, res) => {
   try {
     const { requestId } = req.params;
     const { govtId } = req.user;
-    console.log(req.user)
-    const { 
-      grade, 
-      qualityParams, 
-      gradingNotes, 
+    const {
+      grade,
+      qualityParams,
+      gradingNotes,
       rejectionReason,
       labName,
       labLocation,
-      labCertificationNumber
+      labCertificationNumber,
     } = req.body;
-    
-    const request = await QualityRequest.findOne({ 
-      _id: requestId, 
-      assignedOfficer: govtId
+
+    const request = await QualityRequest.findOne({
+      _id: requestId,
+      assignedOfficer: govtId,
     });
 
-    // console.log(requestId);
-    // console.log(userId);
-    
     if (!request) {
-      return res.status(404).json({ message: 'Request not found or not assigned to you' });
+      return res
+        .status(404)
+        .json({ message: "Request not found or not assigned to you" });
     }
-    
+
     // Update quality request
-    request.status = grade === 'Rejected' ? 'rejected' : 'approved';
+    request.status = grade === "Rejected" ? "rejected" : "approved";
     request.grade = grade;
     request.qualityParams = qualityParams;
     request.gradingNotes = gradingNotes;
     request.rejectionReason = rejectionReason;
     request.inspectionDate = Date.now();
-    
+
     // Lab information
     request.labName = labName;
     request.labLocation = labLocation;
     request.labCertificationNumber = labCertificationNumber;
-    
+
     // Generate certificate if approved
-    if (grade !== 'Rejected') {
-      request.certificateNumber = `CERT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    if (grade !== "Rejected") {
+      request.certificateNumber = `CERT-${Date.now()}-${Math.floor(
+        Math.random() * 1000
+      )}`;
       request.certificateIssueDate = Date.now();
-      // Generate QR code (placeholder URL)
       request.certificateQRCode = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${request.certificateNumber}`;
     }
-    
+
+    const sale = await Sale.findOne({
+      cropOutputId: request.cropOutputId,
+      status: { $in: ["active", "pending_govt_approval"] },
+    });
+
+    if (sale) {
+      // Update quality information in the sale
+      if (grade !== "Rejected") {
+        sale.hasQualityCertificate = true;
+        sale.qualityGrade = grade;
+        sale.qualityRequestId = request._id;
+      } else {
+        sale.hasQualityCertificate = false;
+        sale.qualityGrade = null;
+      }
+      await sale.save();
+    }
+
     await request.save();
-    
-    // Update crop output status
+
+    // Update crop output QUALITY STATUS only
     const cropOutput = await CropOutput.findById(request.cropOutputId);
     if (cropOutput) {
-      cropOutput.status = grade === 'Rejected' ? 'quality-rejected' : 'quality-approved';
+      cropOutput.qualityStatus = grade === "Rejected" ? "rejected" : "approved";
       await cropOutput.save();
     }
-    
-    res.status(200).json({ 
-      message: 'Grading submitted successfully', 
-      request 
+
+    res.status(200).json({
+      message: "Grading submitted successfully",
+      request,
     });
   } catch (error) {
-    console.error('Submit Grading Error:', error);
-    res.status(500).json({ message: 'Server Error' });
+    console.error("Submit Grading Error:", error);
+    res.status(500).json({ message: "Server Error" });
   }
 };
