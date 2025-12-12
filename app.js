@@ -18,6 +18,7 @@ const govtAuthRoutes = require("./routers/govtAuthRoutes");
 const mspRoutes = require("./routers/mspRoutes");
 const cropRoutes = require("./routers/cropRoutes");
 const cropOutputRoutes=require("./routers/cropOutputRoutes");
+const buyerRequirementRoutes = require('./routers/buyerRequirementRoutes');
 const app = express();
 
 // Middleware
@@ -34,11 +35,11 @@ const qualityRoutes = require("./routers/qualityRoutes");
 app.use("/api/quality", qualityRoutes);
 app.use("/api/crops", cropRoutes);
 app.use("/api/crop-output", cropOutputRoutes);
-// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
 app.use("/api/vendor/product", vendorProductRoutes);
 app.use("/api/buyer/auth", buyerAuthRoutes);
+app.use('/api/buyer/requirements', buyerRequirementRoutes);
 app.use("/api/govt/auth", govtAuthRoutes);
 app.use("/api/msp", mspRoutes);
 
