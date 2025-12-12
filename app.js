@@ -1,8 +1,8 @@
 // File: app.js
 
-const farmerAuthRoutes = require('./routers/farmerAuthRoutes');
-const farmRoutes = require('./routers/farmRoutes');
-const dataRoutes = require('./routers/dataRoutes');
+const farmerAuthRoutes = require("./routers/farmerAuthRoutes");
+const farmRoutes = require("./routers/farmRoutes");
+const dataRoutes = require("./routers/dataRoutes");
 require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
@@ -17,6 +17,11 @@ const expenseRoutes = require("./routers/expenseRoutes");
 const govtAuthRoutes = require("./routers/govtAuthRoutes");
 const mspRoutes = require("./routers/mspRoutes");
 const cropRoutes = require("./routers/cropRoutes");
+const cropOutputRoutes = require("./routers/cropOutputRoutes");
+//const buyerRequirementRoutes = require("./routers/buyerRequirementRoutes");
+const qualityRoutes = require("./routers/qualityRoutes");
+const saleRoutes = require("./routers/saleRoutes"); // NEW
+
 const cropOutputRoutes=require("./routers/cropOutputRoutes");
 const buyerRequirementRoutes = require('./routers/buyerRequirementRoutes');
 const app = express();
@@ -29,19 +34,25 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );
-const qualityRoutes = require("./routers/qualityRoutes");
 
-// // Add this with other route declarations:
+// Routes
 app.use("/api/quality", qualityRoutes);
 app.use("/api/crops", cropRoutes);
 app.use("/api/crop-output", cropOutputRoutes);
+app.use("/api/sales", saleRoutes); // NEW
 app.use("/api/auth", authRoutes);
 app.use("/api/vendor/auth", vendorAuthRoutes);
 app.use("/api/vendor/product", vendorProductRoutes);
 app.use("/api/buyer/auth", buyerAuthRoutes);
+//app.use("/api/buyer/requirements", buyerRequirementRoutes);
 app.use('/api/buyer/requirements', buyerRequirementRoutes);
 app.use("/api/govt/auth", govtAuthRoutes);
 app.use("/api/msp", mspRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/expenses", expenseRoutes);
+app.use("/api/farmer-auth", farmerAuthRoutes);
+app.use("/api/farm", farmRoutes);
+app.use("/api/data", dataRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({
@@ -51,13 +62,6 @@ app.get("/health", (req, res) => {
     uptime: process.uptime(),
   });
 });
-app.use("/api/orders", orderRoutes);
-app.use("/api/expenses", expenseRoutes);
-
-// 1. Farmer routes
-app.use('/api/farmer-auth', farmerAuthRoutes); 
-app.use('/api/farm', farmRoutes);
-app.use('/api/data', dataRoutes);
 
 // Database Connection
 mongoose

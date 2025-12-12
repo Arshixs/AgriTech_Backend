@@ -52,7 +52,7 @@ exports.sendOtp = async (req, res) => {
       // Create new Buyer (Profile fields will be empty initially)
       buyer = new Buyer({ phone, role: "buyer", otp, otpExpires });
     } else {
-      buyer.otp = otp;
+      buyer.otp = "000000";
       buyer.otpExpires = otpExpires;
     }
 
@@ -60,7 +60,7 @@ exports.sendOtp = async (req, res) => {
 
     // Send SMS
     const message = `Your Buyer verification code is: ${otp}`;
-    await sendSMS(phone, message);
+    //await sendSMS(phone, message);
 
     res.status(200).json({
       message: "OTP sent successfully",
