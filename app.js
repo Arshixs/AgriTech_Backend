@@ -8,7 +8,6 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 
-const authRoutes = require("./routers/authRoutes");
 const vendorAuthRoutes = require("./routers/vendorAuthRoutes");
 const vendorProductRoutes = require("./routers/vendorProductRoutes");
 const buyerAuthRoutes = require("./routers/buyerAuthRoutes");
@@ -21,6 +20,7 @@ const cropOutputRoutes = require("./routers/cropOutputRoutes");
 //const buyerRequirementRoutes = require("./routers/buyerRequirementRoutes");
 const qualityRoutes = require("./routers/qualityRoutes");
 const saleRoutes = require("./routers/saleRoutes"); // NEW
+const authRoutes = require("./routers/authRoutes"); 
 
 //const cropOutputRoutes = require("./routers/cropOutputRoutes");
 const buyerRequirementRoutes = require("./routers/buyerRequirementRoutes");
