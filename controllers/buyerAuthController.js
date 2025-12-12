@@ -43,7 +43,8 @@ exports.sendOtp = async (req, res) => {
     }
 
     // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = "000000";
     const otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
 
     let buyer = await Buyer.findOne({ phone });

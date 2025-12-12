@@ -24,6 +24,10 @@ const farmerSchema = new mongoose.Schema({
   type: String 
  },
  
+ coordinates: {
+    lat: { type: Number },
+    lng: { type: Number },
+  },
  // --- OTP Fields (Temporary) ---
  otp: { 
   type: String 
