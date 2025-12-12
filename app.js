@@ -22,6 +22,8 @@ const cropOutputRoutes = require("./routers/cropOutputRoutes");
 const qualityRoutes = require("./routers/qualityRoutes");
 const saleRoutes = require("./routers/saleRoutes"); // NEW
 
+const cropOutputRoutes=require("./routers/cropOutputRoutes");
+const buyerRequirementRoutes = require('./routers/buyerRequirementRoutes');
 const app = express();
 
 // Middleware
@@ -43,6 +45,7 @@ app.use("/api/vendor/auth", vendorAuthRoutes);
 app.use("/api/vendor/product", vendorProductRoutes);
 app.use("/api/buyer/auth", buyerAuthRoutes);
 //app.use("/api/buyer/requirements", buyerRequirementRoutes);
+app.use('/api/buyer/requirements', buyerRequirementRoutes);
 app.use("/api/govt/auth", govtAuthRoutes);
 app.use("/api/msp", mspRoutes);
 app.use("/api/orders", orderRoutes);
