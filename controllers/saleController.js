@@ -1,4 +1,4 @@
-// controllers/saleController.js
+// controllers/saleController.js - UPDATED FOR SEPARATE STATUS
 const Sale = require("../models/Sale");
 const CropOutput = require("../models/CropOutput");
 const MSP = require("../models/MSP");
@@ -42,10 +42,10 @@ exports.listForMarketplace = async (req, res) => {
       });
     }
 
-    // Check if crop is available for sale
-    if (!["available", "quality-approved", "quality-rejected"].includes(cropOutput.status)) {
+    // Check SALE STATUS (not quality status)
+    if (cropOutput.status !== "available") {
       return res.status(400).json({
-        message: "Only available or quality-approved or rejected crops can be listed",
+        message: "Only available crops can be listed for sale",
       });
     }
 
@@ -55,7 +55,7 @@ exports.listForMarketplace = async (req, res) => {
 
     if (
       cropOutput.qualityRequestId &&
-      cropOutput.status === "quality-approved"
+      cropOutput.qualityStatus === "approved"
     ) {
       const qualityRequest = await QualityRequest.findById(
         cropOutput.qualityRequestId
@@ -86,7 +86,7 @@ exports.listForMarketplace = async (req, res) => {
 
     await sale.save();
 
-    // Update crop output status
+    // Update crop output SALE STATUS only
     cropOutput.status = "listed-for-sale";
     cropOutput.saleId = sale._id;
     await cropOutput.save();
@@ -135,10 +135,10 @@ exports.listForGovernmentMSP = async (req, res) => {
       });
     }
 
-    // Check if crop is available for sale
-    if (!["available", "quality-approved", "quality-rejected"].includes(cropOutput.status)) {
+    // Check SALE STATUS (not quality status)
+    if (cropOutput.status !== "available") {
       return res.status(400).json({
-        message: "Only available or quality-approved crops or quality-rejected can be listed",
+        message: "Only available crops can be listed for government sale",
       });
     }
 
@@ -167,7 +167,7 @@ exports.listForGovernmentMSP = async (req, res) => {
 
     if (
       cropOutput.qualityRequestId &&
-      cropOutput.status === "quality-approved"
+      cropOutput.qualityStatus === "approved"
     ) {
       const qualityRequest = await QualityRequest.findById(
         cropOutput.qualityRequestId
@@ -221,7 +221,7 @@ exports.listForGovernmentMSP = async (req, res) => {
     sale.govtRequestId = procurementRequest._id;
     await sale.save();
 
-    // Update crop output status
+    // Update crop output SALE STATUS only
     cropOutput.status = "listed-for-sale";
     cropOutput.saleId = sale._id;
     await cropOutput.save();
@@ -323,20 +323,10 @@ exports.cancelSale = async (req, res) => {
     sale.status = "cancelled";
     await sale.save();
 
-    // Update crop output status back to available/quality-approved
-    const cropOutput = await CropOutput.findById(sale.cropOutputId).populate(
-      "qualityRequestId"
-    );
-
+    // Update crop output SALE STATUS back to available
+    const cropOutput = await CropOutput.findById(sale.cropOutputId);
     if (cropOutput) {
-      if (
-        cropOutput.qualityRequestId &&
-        cropOutput.qualityRequestId.status === "approved"
-      ) {
-        cropOutput.status = "quality-approved";
-      } else {
-        cropOutput.status = "available";
-      }
+      cropOutput.status = "available";
       cropOutput.saleId = undefined;
       await cropOutput.save();
     }
