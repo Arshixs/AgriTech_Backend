@@ -5,7 +5,7 @@ const saleSchema = new mongoose.Schema(
   {
     farmerId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Farmer",
       required: true,
       index: true,
     },
