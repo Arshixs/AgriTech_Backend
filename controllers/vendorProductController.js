@@ -136,3 +136,22 @@ exports.deleteProduct = async (req, res) => {
     res.status(500).json({ message: "Server Error deleting product" });
   }
 };
+
+// --- 6. GET ALL PRODUCTS (Public - For Farmers/Buyers) ---
+exports.getAllProducts = async (req, res) => {
+  try {
+    // Fetches all products from all vendors
+    // .populate() gets the vendor's name and shop info to display to the farmer
+    const products = await VendorProduct.find({})
+      .populate("vendor", "organizationName name phone address") 
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({ 
+      count: products.length, 
+      products 
+    });
+  } catch (error) {
+    console.error("Get All Products Error:", error);
+    res.status(500).json({ message: "Server Error fetching products" });
+  }
+};

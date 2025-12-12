@@ -7,6 +7,7 @@ const {
   getProductById,
   updateProduct,
   deleteProduct,
+  getAllProducts,
 } = require("../controllers/vendorProductController");
 
 // All routes here require Vendor Login
@@ -21,4 +22,6 @@ router.get("/:id", getProductById); // GET    /api/vendor/product/:id
 router.put("/:id", updateProduct); // PUT    /api/vendor/product/:id
 router.delete("/:id", deleteProduct); // DELETE /api/vendor/product/:id
 
+// 3. Read all the product listed
+router.get("/all",getAllProducts)
 module.exports = router;

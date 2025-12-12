@@ -1,11 +1,12 @@
 const Order = require("../models/Order");
 const VendorProduct = require("../models/VendorProduct");
 
-// --- 1. BUYER: PLACE ORDER ---
+// --- 1. FARMER: PLACE ORDER ---
 exports.createOrder = async (req, res) => {
   try {
-    const { buyerId } = req.user; // Authenticated Buyer
-    const { productId, quantity = 1, startDate, endDate, orderType } = req.body; // Default quantity to 1
+    // Authenticated Farmer (stored as 'userId' in token for generic User model)
+    const { userId } = req.user;
+    const { productId, quantity = 1, startDate, endDate, orderType } = req.body;
 
     // A. Fetch Product
     const product = await VendorProduct.findById(productId);
@@ -22,7 +23,7 @@ exports.createOrder = async (req, res) => {
     let rentalDetails = {};
 
     if (orderType === "purchase") {
-      // For purchases, we permanently reduce stock later, but checking availability now is good
+            // For purchases, we permanently reduce stock later, but checking availability now is good
       if (product.stock < quantity) {
         return res.status(400).json({ message: `Not enough stock available` });
       }
@@ -32,10 +33,10 @@ exports.createOrder = async (req, res) => {
       // 1. Parse Dates
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
+            
       // Calculate Duration
       const diffTime = Math.abs(end - start);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; 
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
       if (diffDays <= 0 || isNaN(diffDays)) {
         return res.status(400).json({ message: "Invalid rental dates" });
@@ -46,10 +47,10 @@ exports.createOrder = async (req, res) => {
       // Status must be 'pending' or 'accepted' (rejected/cancelled don't block calendar)
       const conflictingOrders = await Order.find({
         product: productId,
-        orderType: 'rental',
-        status: { $in: ['accepted'] },
-        'rentalDuration.startDate': { $lte: end },
-        'rentalDuration.endDate': { $gte: start }
+        orderType: "rental",
+        status: { $in: ["accepted"] },
+        "rentalDuration.startDate": { $lte: end },
+        "rentalDuration.endDate": { $gte: start },
       });
 
       // Check day-by-day usage
@@ -61,7 +62,7 @@ exports.createOrder = async (req, res) => {
         for (const order of conflictingOrders) {
           const oStart = new Date(order.rentalDuration.startDate);
           const oEnd = new Date(order.rentalDuration.endDate);
-
+          
           if (d >= oStart && d <= oEnd) {
             usedStockOnDay += order.quantity;
           }
@@ -69,8 +70,8 @@ exports.createOrder = async (req, res) => {
 
         // Check if adding our request exceeds total stock
         if (usedStockOnDay + quantity > product.stock) {
-          return res.status(400).json({ 
-            message: `Not available on ${d.toDateString()}. Only ${product.stock - usedStockOnDay} units left for that date.` 
+          return res.status(400).json({
+            message: `Not available on ${d.toDateString()}. Only ${product.stock - usedStockOnDay} units left.`
           });
         }
       }
@@ -86,10 +87,10 @@ exports.createOrder = async (req, res) => {
       };
     }
 
-    // D. Create Order
+    // D. Create Order (Linked to Farmer)
     const newOrder = new Order({
-      buyer: buyerId,
-      vendor: product.vendor, 
+      farmer: userId, // CHANGED: Linked to Farmer ID
+      vendor: product.vendor,
       product: productId,
       productSnapshot: {
         name: product.name,
@@ -97,18 +98,18 @@ exports.createOrder = async (req, res) => {
         unit: product.unit
       },
       orderType,
-      quantity: quantity, 
+      quantity: quantity,
       rentalDuration: orderType === "rental" ? rentalDetails : undefined,
       totalAmount,
-      status: "pending", 
-      paymentStatus: "cod" 
+      status: "pending",
+      paymentStatus: "cod"
     });
 
     await newOrder.save();
 
-    res.status(201).json({ 
-      message: "Order placed successfully! Waiting for Vendor approval.", 
-      order: newOrder 
+    res.status(201).json({
+      message: "Order placed successfully!",
+      order: newOrder
     });
 
   } catch (error) {
@@ -121,10 +122,11 @@ exports.createOrder = async (req, res) => {
 exports.getVendorOrders = async (req, res) => {
   try {
     const { vendorId } = req.user;
-    
+
     const orders = await Order.find({ vendor: vendorId })
-      .populate("buyer", "contactPerson companyName phone") 
-      .populate("product", "name") 
+      // CHANGED: Populate 'farmer' from User model
+      .populate("farmer", "name phone address")
+      .populate("product", "name")
       .sort({ createdAt: -1 });
 
     res.status(200).json({ orders });
@@ -134,12 +136,12 @@ exports.getVendorOrders = async (req, res) => {
   }
 };
 
-// --- 3. BUYER: GET MY ORDERS (Outgoing) ---
-exports.getBuyerOrders = async (req, res) => {
+// --- 3. FARMER: GET MY ORDERS (Outgoing) ---
+exports.getFarmerOrders = async (req, res) => {
   try {
-    const { buyerId } = req.user;
-    
-    const orders = await Order.find({ buyer: buyerId })
+    const { userId } = req.user; // Farmer ID
+
+    const orders = await Order.find({ farmer: userId }) // Query by farmer field
       .populate("vendor", "organizationName name phone")
       .populate("product", "name")
       .sort({ createdAt: -1 });

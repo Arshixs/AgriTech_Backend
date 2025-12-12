@@ -4,16 +4,16 @@ const { protect } = require("../middleware/authMiddleware");
 const {
   createOrder,
   getVendorOrders,
-  getBuyerOrders,
+  getFarmerOrders,
   updateOrderStatus,
 } = require("../controllers/orderController");
 
 // Global Protection
 router.use(protect);
 
-// Buyer Routes
+// Farmer Routes
 router.post("/create", createOrder); // POST /api/orders/create
-router.get("/buyer/list", getBuyerOrders); // GET /api/orders/buyer/list
+router.get("/farmer/list", getFarmerOrders); // GET /api/orders/farmer/list
 
 // Vendor Routes
 router.get("/vendor/list", getVendorOrders); // GET /api/orders/vendor/list

@@ -2,9 +2,9 @@ const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema({
   // --- 1. PARTICIPANTS ---
-  buyer: {
+  farmer: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Buyer",
+    ref: "Farmer",
     required: true,
   },
   vendor: {
