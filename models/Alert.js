@@ -13,7 +13,7 @@ const alertSchema = new mongoose.Schema({
     },
     severity: {
         type: String,
-        enum: ['high', 'medium', 'low'],
+        // enum: ['high', 'medium', 'low'],
         default: 'medium',
     },
     title: {

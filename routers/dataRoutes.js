@@ -8,7 +8,7 @@ const {
     getCropRecommendations,
     getPriceForecast,
     getIotDevices
-} = require('../controllers/dataController'); 
+} = require('../controllers/farmerDataController'); 
 
 // All routes here are protected and require a valid farmer JWT
 
