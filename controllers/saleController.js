@@ -6,6 +6,31 @@ const CropMaster = require("../models/CropMaster");
 const GovtProcurementRequest = require("../models/GovtProcurementRequest");
 const QualityRequest = require("../models/QualityRequest");
 
+// Make sure to import the model at the top of your file
+// const Sale = require("../models/Sale");
+
+exports.getAllMarketplaceSales = async (req, res) => {
+  try {
+    const marketplaceSales = await Sale.find({ saleType: "marketplace" })
+      .sort({
+        createdAt: -1,
+      })
+      .populate("farmerId cropOutputId cropId"); // Optional: Show newest first
+
+    // FIX: Check for empty array length
+    if (!marketplaceSales || marketplaceSales.length === 0) {
+      return res.status(404).json({ message: "Nothing available" });
+    }
+
+    return res.status(200).json({ marketplaceSales });
+  } catch (error) {
+    console.error("List for Marketplace Error:", error);
+    res.status(500).json({
+      message: "Server Error listing crops for sale",
+    });
+  }
+};
+
 // List crop for marketplace sale
 exports.listForMarketplace = async (req, res) => {
   try {
