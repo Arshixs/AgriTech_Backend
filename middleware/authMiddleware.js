@@ -18,7 +18,7 @@ const protect = (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // Add user info to request object
-      // decoded can have: userId, vendorId, buyerId, or govtId
+      // decoded can have: farmerId, vendorId, buyerId, or govtId
       req.user = decoded; 
       console.log(
       "user verified"
