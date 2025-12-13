@@ -103,7 +103,6 @@ exports.getMyBids = async (req, res) => {
 
     const bids = await Bid.find({ buyerId })
       .populate("saleId")
-      .populate("farmerId cropOutputId cropId")
       .sort({ amount: -1 });
 
     res.status(200).json({ bids });
