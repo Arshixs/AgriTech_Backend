@@ -8,9 +8,6 @@ exports.placeBid = async (req, res) => {
     let { saleId, amount } = req.body;
     amount = parseFloat(amount);
 
-    if (!mongoose.Types.ObjectId.isValid(saleId)) {
-      return res.status(400).json({ message: "Invalid saleId" });
-    }
     if (isNaN(amount) || amount <= 0) {
       return res.status(400).json({ message: "Invalid bid amount" });
     }
