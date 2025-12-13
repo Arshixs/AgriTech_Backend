@@ -20,11 +20,14 @@ const cropOutputRoutes = require("./routers/cropOutputRoutes");
 //const buyerRequirementRoutes = require("./routers/buyerRequirementRoutes");
 const qualityRoutes = require("./routers/qualityRoutes");
 const saleRoutes = require("./routers/saleRoutes"); // NEW
-const authRoutes = require("./routers/authRoutes"); 
+const authRoutes = require("./routers/authRoutes");
 const bidRoutes = require("./routers/bidRoutes");
-
 //const cropOutputRoutes = require("./routers/cropOutputRoutes");
 const buyerRequirementRoutes = require("./routers/buyerRequirementRoutes");
+
+// Services
+const startAuctionCron = require("./services/auctionCron");
+
 const app = express();
 
 // Middleware
@@ -68,7 +71,10 @@ app.get("/health", (req, res) => {
 // Database Connection
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB Connected"))
+  .then(() => {
+    console.log("MongoDB Connected");
+    startAuctionCron();
+  })
   .catch((err) => console.error(err));
 
 module.exports = app;

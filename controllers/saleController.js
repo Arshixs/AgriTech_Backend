@@ -115,7 +115,7 @@ exports.listForMarketplace = async (req, res) => {
       qualityRequestId: cropOutput.qualityRequestId,
       harvestDate: cropOutput.harvestDate,
       storageLocation: cropOutput.storageLocation,
-      status: "active",
+      status: "pending",
 
       auctionStartDate: start,
       auctionEndDate: end,
