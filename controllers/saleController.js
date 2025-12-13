@@ -74,6 +74,15 @@ exports.listForMarketplace = async (req, res) => {
       });
     }
 
+    // Start date: Tomorrow 00:00:00
+    const start = new Date();
+    start.setDate(start.getDate() + 1);
+    start.setHours(0, 0, 0, 0);
+
+    // End date: 3 days after start
+    const end = new Date(start);
+    end.setDate(end.getDate() + 3);
+
     // Get quality certification status
     let hasQualityCertificate = false;
     let qualityGrade = null;
@@ -107,6 +116,9 @@ exports.listForMarketplace = async (req, res) => {
       harvestDate: cropOutput.harvestDate,
       storageLocation: cropOutput.storageLocation,
       status: "active",
+
+      auctionStartDate: start,
+      auctionEndDate: end,
     });
 
     await sale.save();

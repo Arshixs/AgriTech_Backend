@@ -21,6 +21,7 @@ const cropOutputRoutes = require("./routers/cropOutputRoutes");
 const qualityRoutes = require("./routers/qualityRoutes");
 const saleRoutes = require("./routers/saleRoutes"); // NEW
 const authRoutes = require("./routers/authRoutes"); 
+const bidRoutes = require("./routers/bidRoutes");
 
 //const cropOutputRoutes = require("./routers/cropOutputRoutes");
 const buyerRequirementRoutes = require("./routers/buyerRequirementRoutes");
@@ -53,6 +54,7 @@ app.use("/api/expenses", expenseRoutes);
 app.use("/api/farmer-auth", farmerAuthRoutes);
 app.use("/api/farm", farmRoutes);
 app.use("/api/data", dataRoutes);
+app.use("/api/bids", bidRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({

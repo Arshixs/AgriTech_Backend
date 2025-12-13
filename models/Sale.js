@@ -69,10 +69,24 @@ const saleSchema = new mongoose.Schema(
       enum: ["FAQ", "A", "B", "C"],
     },
 
+    auctionStartDate: { type: Date },
+    auctionEndDate: { type: Date },
+    // basePrice: { type: Number }, // Starting bid
+    currentHighestBid: { type: Number, default: 0 },
+    highestBidder: { type: mongoose.Schema.Types.ObjectId, ref: "Buyer" },
+    totalBids: { type: Number, default: 0 },
+
     // Status
     status: {
       type: String,
-      enum: ["active", "sold", "cancelled", "pending_govt_approval"],
+      enum: [
+        "active",
+        "pending",
+        "unsold",
+        "sold",
+        "cancelled",
+        "pending_govt_approval",
+      ],
       default: "active",
     },
 
