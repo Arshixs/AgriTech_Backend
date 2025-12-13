@@ -132,7 +132,7 @@ exports.getOfficerRequests = async (req, res) => {
       .populate("fieldId", "name area")
       .sort({ createdAt: -1 });
 
-    console.log(requests);
+    //console.log(requests);
 
     res.status(200).json({ requests });
   } catch (error) {

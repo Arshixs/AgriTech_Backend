@@ -9,8 +9,8 @@ exports.getAllCrops = async (req, res) => {
     const crops = await CropMaster.find({ isActive: true }).sort({
       cropName: 1,
     });
-    console.log("HERE");
-    console.log(crops);
+    // console.log("HERE");
+    // console.log(crops);
     res.status(200).json({ crops });
   } catch (error) {
     console.error("Get Crops Error:", error);

@@ -45,6 +45,7 @@ exports.createCropOutput = async (req, res) => {
     field.status = "Fallow";
     field.plantedDate = undefined;
     field.expectedHarvest = undefined;
+    field.cropId=undefined;
     await field.save();
 
     // Populate crop details
