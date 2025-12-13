@@ -11,6 +11,7 @@ const {
   updateSalePrice,
   getMSPForCrop,
   getAllMarketplaceSales,
+  getOneMarketplaceSales,
 } = require("../controllers/saleController");
 
 // All routes require authentication
@@ -19,6 +20,7 @@ router.use(protect);
 // Listing routes
 router.post("/marketplace", listForMarketplace);
 router.get("/marketplace", getAllMarketplaceSales);
+router.get("/marketplace/:id", getOneMarketplaceSales);
 router.post("/government-msp", listForGovernmentMSP);
 
 // Get sales

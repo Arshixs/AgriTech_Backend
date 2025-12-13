@@ -31,6 +31,28 @@ exports.getAllMarketplaceSales = async (req, res) => {
   }
 };
 
+exports.getOneMarketplaceSales = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`hello world${id}`);
+    const marketplaceSale = await Sale.findOne({ _id: id }).populate(
+      "farmerId cropOutputId cropId"
+    ); // Optional: Show newest first
+
+    // FIX: Check for empty array length
+    if (!marketplaceSale || marketplaceSale.length === 0) {
+      return res.status(404).json({ message: "Nothing available" });
+    }
+
+    return res.status(200).json({ marketplaceSale });
+  } catch (error) {
+    console.error("List for Marketplace Error:", error);
+    res.status(500).json({
+      message: "Server Error listing crops for sale",
+    });
+  }
+};
+
 // List crop for marketplace sale
 exports.listForMarketplace = async (req, res) => {
   try {
