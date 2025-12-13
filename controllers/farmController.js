@@ -13,23 +13,24 @@ const getFarmerId = (req) => req.user.userId;
 exports.createField = async (req, res) => {
     try {
         const farmerId = getFarmerId(req);
-        const { name, area, crop, soilType, irrigationType, coordinates } = req.body;
+        const { name, area, soilType, irrigationType, coordinates } = req.body;
 
-        if (!name || !area || !crop) {
-            return res.status(400).json({ message: 'Name, area, and crop are required for a new field.' });
+        if (!name || !area) {
+            return res.status(400).json({ message: 'Name and area are required for a new field.' });
         }
         
         const newField = await Field.create({
             farmerId,
             name,
             area,
-            crop,
             soilType: soilType || 'Unknown',
             irrigationType: irrigationType || 'Drip',
-            status: 'Preparing', // New fields start in 'Preparing' status
+            status: 'Fallow', // New fields start in 'Preparing' status
             healthScore: null,
             coordinates: coordinates || { lat: 0, lng: 0 }
         });
+
+        await newField.save();
 
         res.status(201).json({ message: 'Field created successfully', field: newField });
     } catch (error) {
@@ -43,7 +44,8 @@ exports.getFarmerFields = async (req, res) => {
     try {
         const farmerId = getFarmerId(req);
         // Sort by name for consistent list order
-        const fields = await Field.find({ farmerId }).sort({ name: 1 });
+        const fields = await Field.find({ farmerId }).populate("cropId","cropName icon").sort({ name: 1 });
+
         
         res.status(200).json({ fields });
     } catch (error) {

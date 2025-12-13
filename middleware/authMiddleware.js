@@ -13,16 +13,15 @@ const protect = (req, res, next) => {
       // Get token from header (Bearer <token>)
       token = req.headers.authorization.split(' ')[1];
 
-      console.log(token);
+      //console.log(token);
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // Add user info to request object
       // decoded can have: farmerId, vendorId, buyerId, or govtId
       req.user = decoded; 
-      console.log(
-      "user verified"
-      )
+    
+      
       next();
     } catch (error) {
       console.error(error);

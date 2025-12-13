@@ -148,7 +148,7 @@ exports.updateProfile = async (req, res) => {
 exports.updateGovtProfile = async (req, res) => {
   try {
     const govtId = req.user && req.user.govtId;
-    console.log(req.body);
+   // console.log(req.body);
     if (!govtId || (govtId!==req.body.employeeId)) return res.status(401).json({ message: "Unauthorized" });
 
     // Allowed updatable fields
@@ -161,7 +161,7 @@ exports.updateGovtProfile = async (req, res) => {
       "IFSCCode",
     ];
 
-    console.log(req.body , req.user)
+    //console.log(req.body , req.user)
     // Build update object using only provided allowed fields
     const updates = {};
     allowed.forEach((field) => {
