@@ -4,81 +4,113 @@ const Sale = require("../models/Sale");
 // Place a Bid
 exports.placeBid = async (req, res) => {
   try {
-    const { buyerId } = req.user; // Authenticated Buyer
-    const { saleId, amount } = req.body;
+    const buyerId = req.user.id || req.user.buyerId; // adapt to your auth
+    let { saleId, amount } = req.body;
+    amount = parseFloat(amount);
 
-    const sale = await Sale.findById(saleId);
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ message: "Invalid bid amount" });
+    }
+
+    // Fetch current sale (single read to validate time & status)
+    const sale = await Sale.findById(saleId).lean();
     if (!sale) return res.status(404).json({ message: "Listing not found" });
 
-    // 2. Time Validation
     const now = new Date();
-    if (now < sale.auctionStartDate) {
-      return res.status(400).json({
-        message: `Bidding has not started yet. Starts on ${sale.auctionStartDate.toDateString()}`,
-      });
+    if (now < new Date(sale.auctionStartDate)) {
+      return res.status(400).json({ message: "Bidding has not started yet" });
     }
-    if (now > sale.auctionEndDate) {
+    if (now > new Date(sale.auctionEndDate)) {
       return res
         .status(400)
         .json({ message: "Bidding has ended for this item" });
     }
+    if (sale.status !== "active") {
+      return res.status(400).json({ message: "Auction not active" });
+    }
 
-    // 3. Amount Validation
-    // Determine the floor price for this bid
-    // If 0 bids, floor is Minimum Price
-    // If >0 bids, floor is Highest Bid
-    const currentRefPrice =
-      sale.totalBids === 0 ? sale.minimumPrice : sale.currentHighestBid;
-
-    // Define minimum increment (e.g., ₹50)
+    // Determine minimum allowed bid
     const minIncrement = 50;
-    const minValidBid = currentRefPrice + minIncrement;
-
-    // Special case: If it's the VERY FIRST bid, allow bidding exactly the minimum price?
-    // Usually auctions start AT the base price.
-    // Let's say if totalBids=0, you can bid minimumPrice or higher.
-    // If totalBids > 0, you must bid higher + increment.
-
-    let isValidBid = false;
-    let msg = "";
+    const currentRef =
+      sale.totalBids === 0 ? sale.minimumPrice || 0 : sale.currentHighestBid;
+    const minValidBid =
+      sale.totalBids === 0 ? sale.minimumPrice : currentRef + minIncrement;
 
     if (sale.totalBids === 0) {
-      if (amount >= sale.minimumPrice) isValidBid = true;
-      else
-        msg = `First bid must be at least the starting price of ₹${sale.minimumPrice}`;
+      if (amount < sale.minimumPrice) {
+        return res.status(400).json({
+          message: `First bid must be at least ₹${sale.minimumPrice}`,
+        });
+      }
     } else {
-      if (amount >= minValidBid) isValidBid = true;
-      else
-        msg = `Bid too low. Must be at least ₹${minValidBid} (Current Highest + ₹${minIncrement})`;
+      if (amount < minValidBid) {
+        return res.status(400).json({
+          message: `Bid too low. Must be at least ₹${minValidBid}`,
+        });
+      }
     }
 
-    if (!isValidBid) {
-      return res
-        .status(400)
-        .json({ message: msg, currentHighest: sale.currentHighestBid });
+    // Atomic conditional update on sale: only update if currentHighestBid < amount
+    const update = {
+      $set: { currentHighestBid: amount, highestBidder: buyerId },
+      $inc: { totalBids: 1 },
+    };
+
+    const updatedSale = await Sale.findOneAndUpdate(
+      { _id: saleId, currentHighestBid: { $lt: amount }, status: "active" },
+      update,
+      { new: true }
+    );
+
+    if (!updatedSale) {
+      // means someone else beat this bid concurrently, respond with latest info
+      const fresh = await Sale.findById(saleId).lean();
+      return res.status(409).json({
+        message: "Your bid was not high enough (race condition). Try again.",
+        currentHighest: fresh.currentHighestBid,
+      });
     }
 
-    // 4. Create Bid
-    const bid = new Bid({
+    // Save the Bid document (after sale update)
+    const bid = await Bid.create({
       saleId,
-      buyerId,
+      buyerId: buyerId,
       amount,
-      status: "active",
     });
-    await bid.save();
 
-    // 5. Update Sale
-    sale.currentHighestBid = amount;
-    sale.highestBidder = buyerId;
-    sale.totalBids += 1;
-    await sale.save();
+    // populate buyerId info for emitting
+    await bid.populate("buyerId", "name companyName contactPerson");
 
-    res
+    // Emit socket event
+    const io = req.app.get("io");
+    if (io) {
+      io.to(`sale-${saleId}`).emit("new-bid", {
+        saleId,
+        bid: {
+          _id: bid._id,
+          amount: bid.amount,
+          buyerId: {
+            name:
+              bid.buyerId?.companyName ||
+              bid.buyerId?.contactPerson ||
+              bid.buyerId?.name ||
+              "Anonymous",
+            _id: bid.buyerId?._id,
+          },
+          createdAt: bid.createdAt,
+        },
+        currentHighestBid: amount,
+        highestBidder: buyerId,
+        totalBids: updatedSale.totalBids,
+      });
+    }
+
+    return res
       .status(201)
       .json({ message: "Bid placed successfully", currentHighest: amount });
-  } catch (error) {
-    console.error("Place Bid Error:", error);
-    res.status(500).json({ message: "Server Error placing bid" });
+  } catch (err) {
+    console.error("Place Bid Error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 

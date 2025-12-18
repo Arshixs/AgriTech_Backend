@@ -5,7 +5,6 @@ const farmRoutes = require("./routers/farmRoutes");
 const dataRoutes = require("./routers/dataRoutes");
 require("dotenv").config();
 const express = require("express");
-const mongoose = require("mongoose");
 const cors = require("cors");
 
 const vendorAuthRoutes = require("./routers/vendorAuthRoutes");
@@ -25,8 +24,6 @@ const bidRoutes = require("./routers/bidRoutes");
 //const cropOutputRoutes = require("./routers/cropOutputRoutes");
 const buyerRequirementRoutes = require("./routers/buyerRequirementRoutes");
 
-// Services
-const startAuctionCron = require("./services/auctionCron");
 
 const app = express();
 
@@ -67,14 +64,5 @@ app.get("/health", (req, res) => {
     uptime: process.uptime(),
   });
 });
-
-// Database Connection
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB Connected");
-    startAuctionCron();
-  })
-  .catch((err) => console.error(err));
 
 module.exports = app;

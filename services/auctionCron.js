@@ -4,13 +4,12 @@ const Sale = require("../models/Sale");
 const Bid = require("../models/Bid");
 const CropOutput = require("../models/CropOutput");
 
-const checkAuctionStatus = async () => {
+const checkAuctionStatus = async (io) => {
   console.log("⏳ Running Auction Status Check...");
 
   try {
     const now = new Date();
 
-    // Find all 'active' sales where the End Date has passed
     const expiredSales = await Sale.find({
       saleType: "marketplace",
       status: "active",
@@ -25,11 +24,7 @@ const checkAuctionStatus = async () => {
       );
 
       for (const sale of expiredSales) {
-        // ====================================================
-        // CASE 1: TIME OVER + BIDS EXIST -> MARK AS SOLD
-        // ====================================================
         if (sale.totalBids > 0) {
-          // 1. Update Sale Status
           sale.status = "sold";
           sale.soldTo = sale.highestBidder;
           sale.soldToModel = "Buyer";
@@ -37,17 +32,11 @@ const checkAuctionStatus = async () => {
           sale.finalPrice = sale.currentHighestBid;
           await sale.save();
 
-          // 2. Update CropOutput Status
           await CropOutput.findByIdAndUpdate(sale.cropOutputId, {
             status: "sold",
           });
 
-          // 3. Update Bids (Winner vs Losers)
-          // Mark ALL bids for this sale as 'lost' first
           await Bid.updateMany({ saleId: sale._id }, { status: "lost" });
-
-          // Mark the specific winning bid as 'won'
-          // We find the bid by the saleId, highest bidder ID, and the winning amount
           await Bid.findOneAndUpdate(
             {
               saleId: sale._id,
@@ -57,36 +46,41 @@ const checkAuctionStatus = async () => {
             { status: "won" }
           );
 
+          // Emit socket event
+          if (io) {
+            io.to(`sale-${sale._id}`).emit("auction-ended", {
+              saleId: sale._id,
+              status: "sold",
+              winner: sale.highestBidder,
+              finalPrice: sale.finalPrice,
+            });
+          }
+
           console.log(
             `✅ Sale ${sale._id} marked as SOLD to ${sale.highestBidder}`
           );
-        }
-
-        // ====================================================
-        // CASE 2: TIME OVER + NO BIDS -> MARK AS UNSOLD
-        // ====================================================
-        else {
-          // 1. Update Sale Status
+        } else {
           sale.status = "unsold";
           await sale.save();
 
-          // 2. Update CropOutput (Release it back to farmer?)
-          // If we set it to 'available', the farmer can list it again immediately.
           await CropOutput.findByIdAndUpdate(sale.cropOutputId, {
-            saleType: "marketplace",
             status: "available",
-            $unset: { saleId: 1 }, // Remove link to the failed sale
+            $unset: { saleId: 1 },
           });
 
-          console.log(
-            `❌ Sale ${sale._id} marked as UNSOL// <--- IMPORT THISD. Crop released.`
-          );
+          // Emit socket event
+          if (io) {
+            io.to(`sale-${sale._id}`).emit("auction-ended", {
+              saleId: sale._id,
+              status: "unsold",
+            });
+          }
+
+          console.log(`❌ Sale ${sale._id} marked as UNSOLD. Crop released.`);
         }
       }
     }
-    // ====================================================
-    // CASE 0: TIME START -> MARK AS ACTIVE
-    // ====================================================
+
     await Sale.updateMany(
       { status: "pending", auctionStartDate: { $lte: now } },
       { $set: { status: "active" } }
@@ -97,19 +91,9 @@ const checkAuctionStatus = async () => {
   }
 };
 
-// ==================================================================
-// SCHEDULING
-// ==================================================================
-
-// Schedule the task.
-// '0 0 * * *' runs every day at Midnight (00:00).
-// '*/1 * * * *' runs every minute (Good for testing).
-// '0 * * * *' runs every hour.
-
-const startAuctionCron = () => {
-  // Currently set to run every hour to be safe, or set to '0 0 * * *' for midnight
+const startAuctionCron = (io) => {
   cron.schedule("*/1 * * * *", () => {
-    checkAuctionStatus();
+    checkAuctionStatus(io);
   });
 
   console.log("Cron Job Initialized: Checking auctions Every minute.");
