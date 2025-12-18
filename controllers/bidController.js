@@ -65,6 +65,7 @@ exports.placeBid = async (req, res) => {
     if (!updatedSale) {
       // means someone else beat this bid concurrently, respond with latest info
       const fresh = await Sale.findById(saleId).lean();
+      console.log(fresh);
       return res.status(409).json({
         message: "Your bid was not high enough (race condition). Try again.",
         currentHighest: fresh.currentHighestBid,
@@ -118,9 +119,17 @@ exports.placeBid = async (req, res) => {
 exports.getBidsForSale = async (req, res) => {
   try {
     const { saleId } = req.params;
-    const bids = await Bid.find({ saleId })
+    let bids = await Bid.find({ saleId })
       .populate("buyerId", "companyName contactPerson")
       .sort({ amount: -1 });
+
+    const sale = await Sale.find({ _id: saleId });
+    bids = {
+      highestBidder: sale[0].highestBidder,
+      auctionEndDate: sale[0].auctionEndDate,
+      currentHighestBid: sale[0].currentHighestBid,
+      bids,
+    };
 
     res.status(200).json({ bids });
   } catch (error) {
