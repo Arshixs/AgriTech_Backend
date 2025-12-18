@@ -160,3 +160,37 @@ exports.getMyBids = async (req, res) => {
     res.status(500).json({ message: "Server Error fetching bids" });
   }
 };
+
+// Get Unique Bids for a specific Buyer - FIXED VERSION
+exports.getMyUniqueBids = async (req, res) => {
+  try {
+    const { buyerId } = req.user;
+
+    const bids = await Bid.find({ buyerId })
+      .populate({
+        path: "saleId",
+        populate: [{ path: "cropId" }, { path: "farmerId" }],
+      })
+      .sort({ createdAt: -1 });
+
+    // ============================================
+    // OPTION 1: Using Set (Recommended)
+    // ============================================
+    const seenSaleIds = new Set();
+    const uniqueBids = [];
+
+    for (const bid of bids) {
+      const saleId = bid.saleId?._id?.toString(); // Convert ObjectId to string
+
+      if (!seenSaleIds.has(saleId)) {
+        uniqueBids.push(bid);
+        seenSaleIds.add(saleId); 
+      }
+    }
+
+    res.status(200).json({ bids: uniqueBids });
+  } catch (error) {
+    console.error("Error fetching unique bids:", error);
+    res.status(500).json({ message: "Server Error fetching bids" });
+  }
+};
