@@ -70,6 +70,15 @@ exports.placeBid = async (req, res) => {
         message: "Your bid was not high enough (race condition). Try again.",
         currentHighest: fresh.currentHighestBid,
       });
+    } else {
+      await Bid.updateMany(
+        {
+          saleId,
+          status: "active",
+          amount: { $lt: amount }, // Only mark bids lower than new bid
+        },
+        { $set: { status: "outbid" } }
+      );
     }
 
     // Save the Bid document (after sale update)
