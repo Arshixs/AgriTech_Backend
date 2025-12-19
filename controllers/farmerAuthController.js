@@ -99,36 +99,52 @@ exports.verifyOtp = async (req, res) => {
 // 3. UPDATE PROFILE - Completes the farmer's registration after initial login
 exports.updateProfile = async (req, res) => {
     try {
-        // req.user is set by the authMiddleware from the JWT payload
-        const { userId } = req.user; 
-        const { name, adharNumber, address, coordinates } = req.body;
+        const { userId } = req.user;
+        const { name, address, coordinates, adharNumber } = req.body;
+        console.log(req.user);
+
+        const updateData = {
+            name,
+            address,
+            coordinates,
+            isProfileComplete: true
+        };
+
+        // Only update Adhar if provided (optional security: don't allow re-edit if already exists)
+        if (adharNumber) updateData.adharNumber = adharNumber;
 
         const farmer = await Farmer.findByIdAndUpdate(
             userId,
-            {
-                $set: {
-                name,
-                adharNumber,
-                address,
-                coordinates,
-                isProfileComplete: true
-                },
-                $unset: { verificationDeadline: 1 }
+            { 
+                $set: updateData,
+                $unset: { verificationDeadline: 1 } // Ensure TTL is removed
             },
             { new: true, runValidators: true }
-            ).lean();
+        ).select('-otp -otpExpires');
+
+        res.status(200).json({
+            message: 'Profile updated successfully',
+            farmer
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating profile' });
+    }
+};
+
+// GET /api/farmer-auth/profile
+exports.getProfile = async (req, res) => {
+    try {
+        // req.user.userId comes from your authMiddleware
+        const farmer = await Farmer.findById(req.user.userId)
+            .select('-otp -otpExpires -verificationDeadline'); // Exclude sensitive/temp fields
 
         if (!farmer) {
             return res.status(404).json({ message: 'Farmer not found' });
         }
 
-        res.status(200).json({ 
-            message: 'Profile updated successfully', 
-            farmer 
-        });
-
+        res.status(200).json({ farmer });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server Error updating profile' });
+        res.status(500).json({ message: 'Error fetching profile' });
     }
-};
+}
