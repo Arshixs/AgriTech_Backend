@@ -101,13 +101,22 @@ exports.updateProfile = async (req, res) => {
     try {
         // req.user is set by the authMiddleware from the JWT payload
         const { userId } = req.user; 
-        const { name, adharNumber, address } = req.body;
+        const { name, adharNumber, address, coordinates } = req.body;
 
         const farmer = await Farmer.findByIdAndUpdate(
-            userId, 
-            { name, adharNumber, address }, 
-            { new: true, runValidators: true } // Return the updated document and run schema validation
-        );
+            userId,
+            {
+                $set: {
+                name,
+                adharNumber,
+                address,
+                coordinates,
+                isProfileComplete: true
+                },
+                $unset: { verificationDeadline: 1 }
+            },
+            { new: true, runValidators: true }
+            ).lean();
 
         if (!farmer) {
             return res.status(404).json({ message: 'Farmer not found' });
