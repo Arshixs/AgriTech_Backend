@@ -40,7 +40,19 @@ const farmerSchema = new mongoose.Schema({
  isVerified: {
   type: Boolean,
   default: false
- }
+ },
+ 
+ isProfileComplete: {
+    type: Boolean,
+    default: false
+  },
+
+  // This field controls the deletion
+  verificationDeadline: {
+    type: Date,
+    default: Date.now, // Starts the clock immediately on creation
+    index: { expires: '24h' } // MongoDB background process deletes this after 24hrs
+  }
 }, { 
  timestamps: true,
  // Explicitly setting the collection name, though Mongoose usually pluralizes 'Farmer' correctly

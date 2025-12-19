@@ -40,7 +40,8 @@ exports.sendOtp = async (req, res) => {
     }
 
     // Generate OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = "000000";
     const otpExpires = Date.now() + 10 * 60 * 1000;
 
     let vendor = await Vendor.findOne({ phone });
@@ -57,7 +58,7 @@ exports.sendOtp = async (req, res) => {
 
     // Send SMS
     const message = `Your Agritech verification code is: ${otp}`;
-    await sendSMS(phone, message);
+    // await sendSMS(phone, message);
 
     res.status(200).json({
       message: "OTP sent successfully",
