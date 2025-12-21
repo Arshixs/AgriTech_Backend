@@ -9,6 +9,7 @@ const {
     getPriceForecast,
     getIotDevices
 } = require('../controllers/farmerDataController'); 
+const { predictCropProfitability } = require('../controllers/expensePredictionController')
 
 // All routes here are protected and require a valid farmer JWT
 
@@ -23,6 +24,9 @@ router.get('/recommendations', protect, getCropRecommendations);
 // Market Prices (priceforecast.js support)
 // Query params: /api/data/market/forecast?crop=Rice&timeframe=3months
 router.get('/market/forecast', protect, getPriceForecast); 
+
+//Expense Prediction
+router.get('/expenses/predict', protect, predictCropProfitability);
 
 router.get('/iot/devices', protect, getIotDevices);
 
