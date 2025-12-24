@@ -177,30 +177,27 @@ exports.getFarmerAlerts = async (req, res) => {
 exports.getLatestSoilData = async (req, res) => {
     try {
         const farmerId = getFarmerId(req);
-        
-        // Find the most recently submitted soil analysis for the farmer
-        const latestSoil = await SoilAnalysis.findOne({ farmerId })
-            .sort({ dateTested: -1 })
-            .limit(1);
+        const { fieldId } = req.query;
+
+        if (!fieldId) {
+            return res.status(400).json({ message: 'fieldId is required for specific soil analysis.' });
+        }
+
+        // Find the latest soil report specifically for THIS field
+        const latestSoil = await SoilAnalysis.findOne({ farmerId, fieldId })
+            .sort({ dateTested: -1 });
 
         if (!latestSoil) {
-             // Return default/empty structure if no analysis exists
             return res.status(200).json({
-                message: 'No soil analysis found.',
-                soilData: {
-                    pH: null,
-                    nitrogen: null,
-                    phosphorus: null,
-                    potassium: null,
-                    soilType: null,
-                }
+                message: 'No soil analysis found for this field.',
+                soilData: null
             });
         }
         
         res.status(200).json({ soilData: latestSoil });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Server Error retrieving latest soil analysis' });
+        res.status(500).json({ message: 'Server Error retrieving soil analysis' });
     }
 };
 
@@ -208,9 +205,13 @@ exports.getLatestSoilData = async (req, res) => {
 exports.getCropRecommendations = async (req, res) => {
     try {
         const farmerId = getFarmerId(req);
+        const { fieldId } = req.query;
         
         // Find the most recently calculated recommendation set
-        const recommendationSet = await Recommendation.findOne({ farmerId })
+        const recommendationSet = await Recommendation.findOne({ 
+            farmerId, 
+            fieldId // Critical fix: Filter by fieldId
+        })
             .sort({ dateGenerated: -1 })
             .limit(1);
 

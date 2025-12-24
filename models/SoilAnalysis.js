@@ -9,7 +9,7 @@ const soilAnalysisSchema = new mongoose.Schema({
     fieldId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Field',
-        required: false, // Can be for the entire farm
+        required: true,
     },
     dateTested: {
         type: Date,
@@ -34,5 +34,7 @@ const soilAnalysisSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.Mixed,
     }
 }, { timestamps: true });
+
+soilAnalysisSchema.index({ fieldId: 1, dateTested: -1 });
 
 module.exports = mongoose.model('SoilAnalysis', soilAnalysisSchema);
