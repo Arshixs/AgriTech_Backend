@@ -2,7 +2,8 @@
 const QualityRequest = require("../models/QualityRequest");
 const Field = require("../models/Field");
 const CropOutput = require("../models/CropOutput");
-const Sale= require("../models/Sale")
+const Sale= require("../models/Sale");
+const Farmer = require("../models/Farmer")
 
 // ============ FARMER CONTROLLERS ============
 
@@ -57,7 +58,7 @@ exports.getPendingRequests = async (req, res) => {
     const requests = await QualityRequest.find({
       status: { $in: ["pending", "in-progress"] },
     })
-      .populate("farmerId", "name phone address")
+      .populate("farmerId", "name phone")
       .populate("fieldId", "area name")
       .populate("cropId", "cropName")
       .sort({ createdAt: 1 });
@@ -125,14 +126,11 @@ exports.assignInspection = async (req, res) => {
 exports.getOfficerRequests = async (req, res) => {
   try {
     const { govtId } = req.user;
-    // console.log(requests);
 
     const requests = await QualityRequest.find({ assignedOfficer: govtId })
       .populate("farmerId", "name phone address")
       .populate("fieldId", "name area")
       .sort({ createdAt: -1 });
-
-    //console.log(requests);
 
     res.status(200).json({ requests });
   } catch (error) {
