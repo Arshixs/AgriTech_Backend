@@ -32,6 +32,7 @@ const alertSchema = new mongoose.Schema({
     fieldId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Field',
+        required: true,
     },
     crop: {
         type: String,
