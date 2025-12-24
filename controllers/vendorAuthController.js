@@ -1,6 +1,9 @@
+const Order = require("../models/Order");
 const Vendor = require("../models/Vendor");
+const VendorProduct = require("../models/VendorProduct");
 const { sendSMS } = require("../utils/twilio");
 const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 
 exports.vendorExists = async (req, res) => {
   try {
@@ -119,6 +122,74 @@ exports.verifyOtp = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Server Error verifying OTP" });
+  }
+};
+
+exports.getProfile = async (req, res) => {
+  try {
+    const { vendorId } = req.user;
+
+    // A. Fetch Vendor
+    const vendor = await Vendor.findById(vendorId);
+    if (!vendor) {
+      return res.status(404).json({ message: "Vendor not found" });
+    }
+
+    // B. Calculate Stats
+    // 1. Monthly Revenue (Completed orders this month)
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const revenueStats = await Order.aggregate([
+      {
+        $match: {
+          vendor: new mongoose.Types.ObjectId(vendorId),
+          status: "completed",
+          createdAt: { $gte: startOfMonth },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$totalAmount" },
+        },
+      },
+    ]);
+    const monthlyRevenue =
+      revenueStats.length > 0 ? revenueStats[0].totalRevenue : 0;
+
+    // 2. Active Orders (Accepted)
+    const activeOrdersCount = await Order.countDocuments({
+      vendor: vendorId,
+      status: { $in: ["accepted"] },
+    });
+
+    // 3. Pending Orders (Pending)
+    const pendingOrdersCount = await Order.countDocuments({
+      vendor: vendorId,
+      status: { $in: ["pending"] },
+    });
+
+    // C. Fetch 5 Most Recent Orders
+    const recentOrders = await Order.find({ vendor: vendorId })
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .populate("farmer", "name")
+      .populate("product", "name");
+
+    res.status(200).json({
+      message: "Profile retrieved successfully",
+      vendor,
+      stats: {
+        monthlyRevenue,
+        activeOrders: activeOrdersCount,
+        pendingOrders: pendingOrdersCount,
+      },
+      recentOrders,
+    });
+  } catch (error) {
+    console.error("Get Profile Error:", error);
+    res.status(500).json({ message: "Server Error fetching profile" });
   }
 };
 
