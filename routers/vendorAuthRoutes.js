@@ -5,6 +5,7 @@ const {
   sendOtp,
   verifyOtp,
   updateProfile,
+  getProfile,
 } = require("../controllers/vendorAuthController"); // FIXED: Pointing to the correct vendor file
 const { protect } = require("../middleware/authMiddleware");
 
@@ -17,5 +18,6 @@ router.post("/vendor-exist", vendorExists);
 
 // Protected Routes (Requires JWT)
 router.post("/update-profile", protect, updateProfile);
+router.get("/my", protect, getProfile);
 
 module.exports = router;
