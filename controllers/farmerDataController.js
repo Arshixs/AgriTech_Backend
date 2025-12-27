@@ -1,14 +1,14 @@
-require('dotenv').config();
-const Alert = require('../models/Alert');
-const SoilAnalysis = require('../models/SoilAnalysis');
-const Weather = require('../models/Weather');
-const Recommendation = require('../models/Recommendation');
-const Forecast = require('../models/Forecast');
-const IotDevice = require('../models/IotDevice');
-const Farmer = require('../models/Farmer');
-
-
-
+require("dotenv").config();
+const Alert = require("../models/Alert");
+const SoilAnalysis = require("../models/SoilAnalysis");
+const Weather = require("../models/Weather");
+const Recommendation = require("../models/Recommendation");
+const Forecast = require("../models/Forecast");
+const IotDevice = require("../models/IotDevice");
+const Farmer = require("../models/Farmer");
+const Order = require("../models/Order");
+const Sale = require("../models/Sale");
+const CropMaster = require("../models/CropMaster");
 
 // Utility function to extract farmer ID from the JWT payload
 const getFarmerId = (req) => req.user.userId;
@@ -18,259 +18,374 @@ const WEATHER_API_BASE_URL = process.env.WEATHER_API_BASE_URL;
 
 // Helper to map external WeatherAPI data to internal Weather model structure
 const mapWeatherResponse = (weatherData) => {
-    const current = weatherData.current;
-    const location = weatherData.location;
+  const current = weatherData.current;
+  const location = weatherData.location;
 
-    // Use current API response structure mapping
-    return {
-        location: `${location.name}, ${location.region}`,
-        temperature: current.temp_c,
-        humidity: current.humidity,
-        // Using precip_mm for rainfall
-        rainfall: current.precip_mm, 
-        // Using wind_kph for windSpeed
-        windSpeed: current.wind_kph, 
-        condition: current.condition.text,
-        dateUpdated: new Date(),
-    };
+  // Use current API response structure mapping
+  return {
+    location: `${location.name}, ${location.region}`,
+    temperature: current.temp_c,
+    humidity: current.humidity,
+    // Using precip_mm for rainfall
+    rainfall: current.precip_mm,
+    // Using wind_kph for windSpeed
+    windSpeed: current.wind_kph,
+    condition: current.condition.text,
+    dateUpdated: new Date(),
+  };
 };
 
 // Helper to map WeatherAPI Alerts (from alerts.json endpoint) to internal Alert model structure
 const mapAlertsResponse = (alertsData, farmerId) => {
-    // API returns alerts: { alert: [...] }
-    const alertsArray = alertsData.alert || [];
-    
-    return alertsArray.map(alert => ({
-        farmerId: farmerId,
-        type: 'weather', 
-        // Map severity based on the API response field
-        severity: alert.severity || 'Moderate', 
-        title: alert.headline || 'Weather Alert',
-        // Using the detailed description from the API response
-        description: alert.desc || alert.note || alert.headline,
-        dateGenerated: new Date(alert.effective || Date.now()),
-        crop: 'Farm-wide', 
-    }));
+  // API returns alerts: { alert: [...] }
+  const alertsArray = alertsData.alert || [];
+
+  return alertsArray.map((alert) => ({
+    farmerId: farmerId,
+    type: "weather",
+    // Map severity based on the API response field
+    severity: alert.severity || "Moderate",
+    title: alert.headline || "Weather Alert",
+    // Using the detailed description from the API response
+    description: alert.desc || alert.note || alert.headline,
+    dateGenerated: new Date(alert.effective || Date.now()),
+    crop: "Farm-wide",
+  }));
 };
 
 // --- Core Weather Fetch Logic: Live API + Cache Update ---
 
 // This function now only fetches and caches weather, used as a sub-function by both controllers.
 async function fetchLiveWeather(farmerId) {
-    const farmer = await Farmer.findById(farmerId).select('coordinates address').lean();
+  const farmer = await Farmer.findById(farmerId)
+    .select("coordinates address")
+    .lean();
 
-    if (!farmer || !farmer.coordinates || !farmer.coordinates.lat || !farmer.coordinates.lng) {
-        throw new Error("Farmer profile missing location coordinates.");
-    }
-    
-    const q = `${farmer.coordinates.lat},${farmer.coordinates.lng}`;
-    // Use the CURRENT endpoint for minimal data fetch for caching the current state
-    const url = `${WEATHER_API_BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${q}&aqi=no`;
+  if (
+    !farmer ||
+    !farmer.coordinates ||
+    !farmer.coordinates.lat ||
+    !farmer.coordinates.lng
+  ) {
+    throw new Error("Farmer profile missing location coordinates.");
+  }
 
-    // 1. Attempt Live Fetch
-    const response = await fetch(url);
-    if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`External Current Weather API failed with status ${response.status}: ${errorText}`);
-    }
-    
-    const data = await response.json();
+  const q = `${farmer.coordinates.lat},${farmer.coordinates.lng}`;
+  // Use the CURRENT endpoint for minimal data fetch for caching the current state
+  const url = `${WEATHER_API_BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${q}&aqi=no`;
 
-    // 2. Map and Cache Weather Data
-    const mappedWeather = mapWeatherResponse(data);
-    
-    await Weather.findOneAndUpdate(
-        { farmerId },
-        { $set: mappedWeather },
-        { new: true, upsert: true } // Creates or updates the cache
+  // 1. Attempt Live Fetch
+  const response = await fetch(url);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `External Current Weather API failed with status ${response.status}: ${errorText}`
     );
+  }
 
-    return mappedWeather;
+  const data = await response.json();
+
+  // 2. Map and Cache Weather Data
+  const mappedWeather = mapWeatherResponse(data);
+
+  await Weather.findOneAndUpdate(
+    { farmerId },
+    { $set: mappedWeather },
+    { new: true, upsert: true } // Creates or updates the cache
+  );
+
+  return mappedWeather;
 }
-
 
 // --- 1. Weather Controller (Updated for Live/Cache Logic) ---
 
 // GET /api/data/weather
 exports.getCurrentWeather = async (req, res) => {
-    const farmerId = getFarmerId(req);
-    let weatherData = null;
-    let source = 'cache';
+  const farmerId = getFarmerId(req);
+  let weatherData = null;
+  let source = "cache";
 
-    try {
-        // Attempt to fetch live data (Primary Action)
-        weatherData = await fetchLiveWeather(farmerId);
-        source = 'live';
-        
-    } catch (liveError) {
-        // Live API failed or location was missing (Fallback Action)
-        console.warn(`Live fetch/location failed for Farmer ${farmerId}: ${liveError.message}. Falling back to cache.`);
+  try {
+    // Attempt to fetch live data (Primary Action)
+    weatherData = await fetchLiveWeather(farmerId);
+    source = "live";
+  } catch (liveError) {
+    // Live API failed or location was missing (Fallback Action)
+    console.warn(
+      `Live fetch/location failed for Farmer ${farmerId}: ${liveError.message}. Falling back to cache.`
+    );
 
-        const cachedWeather = await Weather.findOne({ farmerId }).sort({ dateUpdated: -1 });
-
-        if (cachedWeather) {
-            // Use cached data
-            weatherData = cachedWeather;
-        } else {
-            // Failed to fetch live, and no cache exists
-            return res.status(503).json({ message: 'Weather service currently unavailable and no cached data exists.' });
-        }
-    }
-
-    // Return data, guaranteed to be structured correctly
-    res.status(200).json({ 
-        weather: weatherData,
-        source: source
+    const cachedWeather = await Weather.findOne({ farmerId }).sort({
+      dateUpdated: -1,
     });
+
+    if (cachedWeather) {
+      // Use cached data
+      weatherData = cachedWeather;
+    } else {
+      // Failed to fetch live, and no cache exists
+      return res.status(503).json({
+        message:
+          "Weather service currently unavailable and no cached data exists.",
+      });
+    }
+  }
+
+  // Return data, guaranteed to be structured correctly
+  res.status(200).json({
+    weather: weatherData,
+    source: source,
+  });
 };
 
 // --- 2. Alerts Controller ---
 
 // GET /api/data/alerts
 exports.getFarmerAlerts = async (req, res) => {
-    const farmerId = getFarmerId(req);
-    
-    // 1. Attempt to sync alerts from the dedicated API endpoint
-    try {
-        const farmer = await Farmer.findById(farmerId).select('coordinates').lean();
+  const farmerId = getFarmerId(req);
 
-        if (farmer && farmer.coordinates && farmer.coordinates.lat && farmer.coordinates.lng) {
-            const q = `${farmer.coordinates.lat},${farmer.coordinates.lng}`;
-            const url = `${WEATHER_API_BASE_URL}/alerts.json?key=${WEATHER_API_KEY}&q=${q}`;
-            
-            const response = await fetch(url);
-            
-            if (response.ok) {
-                const data = await response.json();
-                
-                // Process and Store Alerts
-                const mappedAlerts = mapAlertsResponse(data.alerts, farmerId);
-                
-                // Clear existing weather alerts before inserting new ones
-                await Alert.deleteMany({ farmerId, type: 'weather' });
-                
-                if (mappedAlerts.length > 0) {
-                    await Alert.insertMany(mappedAlerts);
-                }
-            } else {
-                 console.warn(`External Alerts API failed with status ${response.status}.`);
-            }
+  // 1. Attempt to sync alerts from the dedicated API endpoint
+  try {
+    const farmer = await Farmer.findById(farmerId).select("coordinates").lean();
+
+    if (
+      farmer &&
+      farmer.coordinates &&
+      farmer.coordinates.lat &&
+      farmer.coordinates.lng
+    ) {
+      const q = `${farmer.coordinates.lat},${farmer.coordinates.lng}`;
+      const url = `${WEATHER_API_BASE_URL}/alerts.json?key=${WEATHER_API_KEY}&q=${q}`;
+
+      const response = await fetch(url);
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Process and Store Alerts
+        const mappedAlerts = mapAlertsResponse(data.alerts, farmerId);
+
+        // Clear existing weather alerts before inserting new ones
+        await Alert.deleteMany({ farmerId, type: "weather" });
+
+        if (mappedAlerts.length > 0) {
+          await Alert.insertMany(mappedAlerts);
         }
-    } catch (error) {
-        console.error("Critical Alert Sync Failure:", error);
+      } else {
+        console.warn(
+          `External Alerts API failed with status ${response.status}.`
+        );
+      }
     }
-    
-    // 2. Fetch all current alerts (including any updated weather alerts)
-    try {
-        const alerts = await Alert.find({ farmerId }).sort({ dateGenerated: -1 });
+  } catch (error) {
+    console.error("Critical Alert Sync Failure:", error);
+  }
 
-        res.status(200).json({ alerts });
-    } catch (error) {
-        console.error("Server Error retrieving alerts:", error);
-        res.status(500).json({ message: 'Server Error retrieving alerts' });
-    }
+  // 2. Fetch all current alerts (including any updated weather alerts)
+  try {
+    const alerts = await Alert.find({ farmerId }).sort({ dateGenerated: -1 });
+
+    res.status(200).json({ alerts });
+  } catch (error) {
+    console.error("Server Error retrieving alerts:", error);
+    res.status(500).json({ message: "Server Error retrieving alerts" });
+  }
 };
 
 // --- 2. Recommendations & Soil ---
 
 // GET /api/data/soil/latest
 exports.getLatestSoilData = async (req, res) => {
-    try {
-        const farmerId = getFarmerId(req);
-        
-        // Find the most recently submitted soil analysis for the farmer
-        const latestSoil = await SoilAnalysis.findOne({ farmerId })
-            .sort({ dateTested: -1 })
-            .limit(1);
+  try {
+    const farmerId = getFarmerId(req);
 
-        if (!latestSoil) {
-             // Return default/empty structure if no analysis exists
-            return res.status(200).json({
-                message: 'No soil analysis found.',
-                soilData: {
-                    pH: null,
-                    nitrogen: null,
-                    phosphorus: null,
-                    potassium: null,
-                    soilType: null,
-                }
-            });
-        }
-        
-        res.status(200).json({ soilData: latestSoil });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error retrieving latest soil analysis' });
+    // Find the most recently submitted soil analysis for the farmer
+    const latestSoil = await SoilAnalysis.findOne({ farmerId })
+      .sort({ dateTested: -1 })
+      .limit(1);
+
+    if (!latestSoil) {
+      // Return default/empty structure if no analysis exists
+      return res.status(200).json({
+        message: "No soil analysis found.",
+        soilData: {
+          pH: null,
+          nitrogen: null,
+          phosphorus: null,
+          potassium: null,
+          soilType: null,
+        },
+      });
     }
+
+    res.status(200).json({ soilData: latestSoil });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Server Error retrieving latest soil analysis" });
+  }
 };
 
 // GET /api/data/recommendations
 exports.getCropRecommendations = async (req, res) => {
-    try {
-        const farmerId = getFarmerId(req);
-        
-        // Find the most recently calculated recommendation set
-        const recommendationSet = await Recommendation.findOne({ farmerId })
-            .sort({ dateGenerated: -1 })
-            .limit(1);
+  try {
+    const farmerId = getFarmerId(req);
 
-        if (!recommendationSet) {
-             // Return empty array if no recommendations have been generated
-            return res.status(200).json({ 
-                message: 'No crop recommendations found.',
-                recommendations: [] 
-            });
-        }
-        
-        // Frontend expects the array of crops directly
-        res.status(200).json({ recommendations: recommendationSet.crops });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error retrieving crop recommendations' });
+    // Find the most recently calculated recommendation set
+    const recommendationSet = await Recommendation.findOne({ farmerId })
+      .sort({ dateGenerated: -1 })
+      .limit(1);
+
+    if (!recommendationSet) {
+      // Return empty array if no recommendations have been generated
+      return res.status(200).json({
+        message: "No crop recommendations found.",
+        recommendations: [],
+      });
     }
+
+    // Frontend expects the array of crops directly
+    res.status(200).json({ recommendations: recommendationSet.crops });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Server Error retrieving crop recommendations" });
+  }
 };
 
 // --- 3. Market Prices ---
 
 // GET /api/data/market/forecast
 exports.getPriceForecast = async (req, res) => {
-    const { crop, timeframe = '3months' } = req.query;
+  const { crop, timeframe = "3months" } = req.query;
 
-    if (!crop) {
-        return res.status(400).json({ message: 'Crop query parameter is required' });
+  if (!crop) {
+    return res
+      .status(400)
+      .json({ message: "Crop query parameter is required" });
+  }
+
+  try {
+    // Find the most recent forecast generated for this specific crop and timeframe
+    const marketForecast = await Forecast.findOne({ crop, timeframe })
+      .sort({ dateGenerated: -1 })
+      .limit(1);
+
+    if (!marketForecast) {
+      return res
+        .status(404)
+        .json({ message: `Forecast not found for ${crop} over ${timeframe}.` });
     }
 
-    try {
-        // Find the most recent forecast generated for this specific crop and timeframe
-        const marketForecast = await Forecast.findOne({ crop, timeframe })
-            .sort({ dateGenerated: -1 })
-            .limit(1);
-
-        if (!marketForecast) {
-            return res.status(404).json({ message: `Forecast not found for ${crop} over ${timeframe}.` });
-        }
-
-        // Frontend expects the forecast data structure directly
-        res.status(200).json({ forecast: marketForecast });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error retrieving market price forecast' });
-    }
+    // Frontend expects the forecast data structure directly
+    res.status(200).json({ forecast: marketForecast });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Server Error retrieving market price forecast" });
+  }
 };
 
 // --- IoT Device Management ---
 
 // GET /api/data/iot/devices
 exports.getIotDevices = async (req, res) => {
-    try {
-        const farmerId = getFarmerId(req);
-        // Find all devices, sorted by status (warnings first) and then name
-        const devices = await IotDevice.find({ farmerId })
-            .sort({ status: -1, name: 1 }); // Assuming status 'warning' sorts before 'active'
-            
-        res.status(200).json({ devices });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error retrieving IoT devices' });
-    }
+  try {
+    const farmerId = getFarmerId(req);
+    // Find all devices, sorted by status (warnings first) and then name
+    const devices = await IotDevice.find({ farmerId }).sort({
+      status: -1,
+      name: 1,
+    }); // Assuming status 'warning' sorts before 'active'
+
+    res.status(200).json({ devices });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error retrieving IoT devices" });
+  }
+};
+
+exports.getTransactions = async (req, res) => {
+  try {
+    const farmerId = getFarmerId(req);
+    console.log(farmerId);
+    // 1. Run both queries in parallel for performance
+    const [orders, sales] = await Promise.all([
+      // Fetch Expenses (Money Out)
+      Order.find({
+        farmer: farmerId,
+        // You might want to include 'cod' (Cash on Delivery) as valid transactions
+        paymentStatus: { $in: ["paid", "cod"] },
+      })
+        .select("productSnapshot totalAmount createdAt orderType _id")
+        .sort({ createdAt: -1 }),
+
+      // Fetch Income (Money In)
+      Sale.find({
+        farmerId: farmerId,
+        status: "sold",
+      })
+        .populate("cropId", "name") // Populate to get crop name (e.g., "Wheat")
+        .select("finalPrice soldDate listedDate cropId quantity unit _id")
+        .sort({ soldDate: -1 }),
+    ]);
+
+    // console.log(orders);
+
+    // 2. Normalize Orders (Expense)
+    const formattedOrders = orders.map((order) => ({
+      _id: order._id,
+      type: "expense", // To show red color/minus sign in UI
+      title: order.productSnapshot?.name || "Vendor Purchase",
+      subtitle: `${order.orderType} Order`,
+      amount: order.totalAmount,
+      date: new Date(order.createdAt),
+      status: "completed",
+      icon: "shopping-outline", // Icon name for Frontend
+    }));
+
+    // 3. Normalize Sales (Income)
+    const formattedSales = sales.map((sale) => ({
+      _id: sale._id,
+      type: "income", // To show green color/plus sign in UI
+      title: `Sold ${sale.cropId?.name || "Crop"}`,
+      subtitle: `${sale.quantity} ${sale.unit}`,
+      amount: sale.finalPrice || 0,
+      // Fallback to listedDate if soldDate is missing
+      date: new Date(sale.soldDate || sale.listedDate),
+      status: "completed",
+      icon: "cash", // Icon name for Frontend
+    }));
+
+    // 4. Combine and Sort by Date (Newest first)
+    const allTransactions = [...formattedOrders, ...formattedSales].sort(
+      (a, b) => b.date - a.date
+    );
+
+    // 5. Calculate Total Balance (Optional but helpful)
+    const totalIncome = formattedSales.reduce(
+      (acc, curr) => acc + curr.amount,
+      0
+    );
+    const totalExpense = formattedOrders.reduce(
+      (acc, curr) => acc + curr.amount,
+      0
+    );
+
+    res.status(200).json({
+      success: true,
+      data: allTransactions,
+      summary: {
+        totalIncome,
+        totalExpense,
+        balance: totalIncome - totalExpense,
+      },
+    });
+  } catch (error) {
+    console.error("Transaction Fetch Error:", error);
+    res.status(500).json({ message: "Error fetching transactions" });
+  }
 };
