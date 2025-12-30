@@ -1,6 +1,8 @@
 // File: controllers/buyerAuthController.js
 
 const Buyer = require("../models/Buyer");
+const BuyerRequirement = require("../models/BuyerRequirement");
+const Bid = require("../models/Bid");
 const { sendSMS } = require("../utils/twilio");
 const jwt = require("jsonwebtoken");
 
@@ -137,9 +139,9 @@ exports.updateProfile = async (req, res) => {
     }
 
     // Check if email is already used by another buyer
-    const existingBuyer = await Buyer.findOne({ 
-      email, 
-      _id: { $ne: buyerId } 
+    const existingBuyer = await Buyer.findOne({
+      email,
+      _id: { $ne: buyerId },
     });
 
     if (existingBuyer) {
@@ -156,9 +158,9 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ message: "Buyer not found" });
     }
 
-    res.status(200).json({ 
-      message: "Profile updated successfully", 
-      buyer 
+    res.status(200).json({
+      message: "Profile updated successfully",
+      buyer,
     });
   } catch (error) {
     console.error(error);
@@ -169,17 +171,47 @@ exports.updateProfile = async (req, res) => {
 // 4. GET BUYER PROFILE
 exports.getProfile = async (req, res) => {
   try {
-    const { buyerId } = req.user; // From authMiddleware
+    const { buyerId } = req.user;
 
-    const buyer = await Buyer.findById(buyerId).select('-otp -otpExpires');
+    const buyer = await Buyer.findById(buyerId).select("-otp -otpExpires");
 
     if (!buyer) {
       return res.status(404).json({ message: "Buyer not found" });
     }
 
-    res.status(200).json({ buyer });
+    // Use Promise.all to run these queries in parallel (faster response time)
+    const [
+      requirementsCount,
+      threeLatestRequirements,
+      buyerActiveBidsCount,
+      buyerWonBidsCount,
+    ] = await Promise.all([
+      // 1. Count requirements without fetching data
+      BuyerRequirement.countDocuments({ buyer: buyerId }),
+
+      // 2. Fetch only the top 3 latest (sorted by creation date)
+      BuyerRequirement.find({ buyer: buyerId })
+        .sort({ createdAt: -1 }) // -1 means descending (newest first)
+        .limit(3),
+
+      // 3. Count active bids
+      Bid.countDocuments({ buyerId: buyerId, status: "active" }),
+
+      // 4. Count won bids
+      Bid.countDocuments({ buyerId: buyerId, status: "won" }),
+    ]);
+
+    res.status(200).json({
+      buyer,
+      stats: {
+        requirementsCount,
+        activeBids: buyerActiveBidsCount,
+        wonBids: buyerWonBidsCount,
+      },
+      recentRequirements: threeLatestRequirements,
+    });
   } catch (error) {
-    console.error(error);
+    console.error("Profile Fetch Error:", error);
     res.status(500).json({ message: "Server Error fetching profile" });
   }
 };

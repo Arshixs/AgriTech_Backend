@@ -87,7 +87,7 @@ async function fetchLiveWeather(farmerId, fieldId) {
         { new: true, upsert: true }
     );
 
-    return mappedWeather;
+  return mappedWeather;
 }
 
 // --- 1. Weather Controller (Field Level) ---
@@ -222,63 +222,155 @@ exports.getCropRecommendations = async (req, res) => {
             .sort({ dateGenerated: -1 })
             .limit(1);
 
-        if (!recommendationSet) {
-             // Return empty array if no recommendations have been generated
-            return res.status(200).json({ 
-                message: 'No crop recommendations found.',
-                recommendations: [] 
-            });
-        }
-        
-        // Frontend expects the array of crops directly
-        res.status(200).json({ recommendations: recommendationSet.crops });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error retrieving crop recommendations' });
+    if (!recommendationSet) {
+      // Return empty array if no recommendations have been generated
+      return res.status(200).json({
+        message: "No crop recommendations found.",
+        recommendations: [],
+      });
     }
+
+    // Frontend expects the array of crops directly
+    res.status(200).json({ recommendations: recommendationSet.crops });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Server Error retrieving crop recommendations" });
+  }
 };
 
 // --- 3. Market Prices ---
 
 // GET /api/data/market/forecast
 exports.getPriceForecast = async (req, res) => {
-    const { crop, timeframe = '3months' } = req.query;
+  const { crop, timeframe = "3months" } = req.query;
 
-    if (!crop) {
-        return res.status(400).json({ message: 'Crop query parameter is required' });
+  if (!crop) {
+    return res
+      .status(400)
+      .json({ message: "Crop query parameter is required" });
+  }
+
+  try {
+    // Find the most recent forecast generated for this specific crop and timeframe
+    const marketForecast = await Forecast.findOne({ crop, timeframe })
+      .sort({ dateGenerated: -1 })
+      .limit(1);
+
+    if (!marketForecast) {
+      return res
+        .status(404)
+        .json({ message: `Forecast not found for ${crop} over ${timeframe}.` });
     }
 
-    try {
-        // Find the most recent forecast generated for this specific crop and timeframe
-        const marketForecast = await Forecast.findOne({ crop, timeframe })
-            .sort({ dateGenerated: -1 })
-            .limit(1);
-
-        if (!marketForecast) {
-            return res.status(404).json({ message: `Forecast not found for ${crop} over ${timeframe}.` });
-        }
-
-        // Frontend expects the forecast data structure directly
-        res.status(200).json({ forecast: marketForecast });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error retrieving market price forecast' });
-    }
+    // Frontend expects the forecast data structure directly
+    res.status(200).json({ forecast: marketForecast });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Server Error retrieving market price forecast" });
+  }
 };
 
 // --- IoT Device Management ---
 
 // GET /api/data/iot/devices
 exports.getIotDevices = async (req, res) => {
-    try {
-        const farmerId = getFarmerId(req);
-        // Find all devices, sorted by status (warnings first) and then name
-        const devices = await IotDevice.find({ farmerId })
-            .sort({ status: -1, name: 1 }); // Assuming status 'warning' sorts before 'active'
-            
-        res.status(200).json({ devices });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Server Error retrieving IoT devices' });
-    }
+  try {
+    const farmerId = getFarmerId(req);
+    // Find all devices, sorted by status (warnings first) and then name
+    const devices = await IotDevice.find({ farmerId }).sort({
+      status: -1,
+      name: 1,
+    }); // Assuming status 'warning' sorts before 'active'
+
+    res.status(200).json({ devices });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server Error retrieving IoT devices" });
+  }
+};
+
+exports.getTransactions = async (req, res) => {
+  try {
+    const farmerId = getFarmerId(req);
+    console.log(farmerId);
+    // 1. Run both queries in parallel for performance
+    const [orders, sales] = await Promise.all([
+      // Fetch Expenses (Money Out)
+      Order.find({
+        farmer: farmerId,
+        // You might want to include 'cod' (Cash on Delivery) as valid transactions
+        paymentStatus: { $in: ["paid", "cod"] },
+      })
+        .select("productSnapshot totalAmount createdAt orderType _id")
+        .sort({ createdAt: -1 }),
+
+      // Fetch Income (Money In)
+      Sale.find({
+        farmerId: farmerId,
+        status: "sold",
+      })
+        .populate("cropId", "name") // Populate to get crop name (e.g., "Wheat")
+        .select("finalPrice soldDate listedDate cropId quantity unit _id")
+        .sort({ soldDate: -1 }),
+    ]);
+
+    // console.log(orders);
+
+    // 2. Normalize Orders (Expense)
+    const formattedOrders = orders.map((order) => ({
+      _id: order._id,
+      type: "expense", // To show red color/minus sign in UI
+      title: order.productSnapshot?.name || "Vendor Purchase",
+      subtitle: `${order.orderType} Order`,
+      amount: order.totalAmount,
+      date: new Date(order.createdAt),
+      status: "completed",
+      icon: "shopping-outline", // Icon name for Frontend
+    }));
+
+    // 3. Normalize Sales (Income)
+    const formattedSales = sales.map((sale) => ({
+      _id: sale._id,
+      type: "income", // To show green color/plus sign in UI
+      title: `Sold ${sale.cropId?.name || "Crop"}`,
+      subtitle: `${sale.quantity} ${sale.unit}`,
+      amount: sale.finalPrice || 0,
+      // Fallback to listedDate if soldDate is missing
+      date: new Date(sale.soldDate || sale.listedDate),
+      status: "completed",
+      icon: "cash", // Icon name for Frontend
+    }));
+
+    // 4. Combine and Sort by Date (Newest first)
+    const allTransactions = [...formattedOrders, ...formattedSales].sort(
+      (a, b) => b.date - a.date
+    );
+
+    // 5. Calculate Total Balance (Optional but helpful)
+    const totalIncome = formattedSales.reduce(
+      (acc, curr) => acc + curr.amount,
+      0
+    );
+    const totalExpense = formattedOrders.reduce(
+      (acc, curr) => acc + curr.amount,
+      0
+    );
+
+    res.status(200).json({
+      success: true,
+      data: allTransactions,
+      summary: {
+        totalIncome,
+        totalExpense,
+        balance: totalIncome - totalExpense,
+      },
+    });
+  } catch (error) {
+    console.error("Transaction Fetch Error:", error);
+    res.status(500).json({ message: "Error fetching transactions" });
+  }
 };
