@@ -124,7 +124,7 @@ exports.completeProfile = async (req, res) => {
       name,
       email,
       // employeeId,
-      designation,
+      //designation,
       homeAddress,
       maritalStatus,
       accountNumber,
@@ -134,9 +134,9 @@ exports.completeProfile = async (req, res) => {
     } = req.body;
 
     // Validate required fields
-    if (!name || !email || !designation) {
+    if (!name || !email) {
       return res.status(400).json({
-        message: "Name, Email, and Designation are required",
+        message: "Name, Email are required",
       });
     }
 
@@ -155,8 +155,8 @@ exports.completeProfile = async (req, res) => {
     // Update employee details
     employee.name = name;
     employee.email = email;
-   // employee.employeeId = employeeId;
-    employee.designation = designation;
+    //employee.employeeId = employeeId;
+    //employee.designation = designation;
     employee.homeAddress = homeAddress;
     employee.maritalStatus = maritalStatus;
     employee.accountNumber = accountNumber;
