@@ -109,12 +109,10 @@ const buyerRequirementSchema = new mongoose.Schema(
 );
 
 // Middleware to auto-expire listings
-buyerRequirementSchema.pre("save", function (next) {
-  // If no expiry date is set, default to the requiredByDate
+buyerRequirementSchema.pre("save", async function () {
   if (!this.listingExpiresAt && this.requiredByDate) {
     this.listingExpiresAt = this.requiredByDate;
   }
-  next();
 });
 
 module.exports = mongoose.model("BuyerRequirement", buyerRequirementSchema);
