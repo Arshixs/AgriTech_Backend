@@ -89,26 +89,15 @@ exports.placeBid = async (req, res) => {
     });
 
     // populate buyerId info for emitting
-    await bid.populate("buyerId", "name companyName contactPerson");
+    await bid.populate("buyerId", "companyName contactPerson");
+    // console.log(bid);
 
     // Emit socket event
     const io = req.app.get("io");
     if (io) {
       io.to(`sale-${saleId}`).emit("new-bid", {
         saleId,
-        bid: {
-          _id: bid._id,
-          amount: bid.amount,
-          buyerId: {
-            name:
-              bid.buyerId?.companyName ||
-              bid.buyerId?.contactPerson ||
-              bid.buyerId?.name ||
-              "Anonymous",
-            _id: bid.buyerId?._id,
-          },
-          createdAt: bid.createdAt,
-        },
+        bid,
         currentHighestBid: amount,
         highestBidder: buyerId,
         totalBids: updatedSale.totalBids,
@@ -184,7 +173,7 @@ exports.getMyUniqueBids = async (req, res) => {
 
       if (!seenSaleIds.has(saleId)) {
         uniqueBids.push(bid);
-        seenSaleIds.add(saleId); 
+        seenSaleIds.add(saleId);
       }
     }
 
