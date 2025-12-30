@@ -35,8 +35,6 @@ const buyerRequirementSchema = new mongoose.Schema(
     unit: {
       type: String,
       required: true,
-      enum: ["kg", "quintal", "ton", "crates"],
-      default: "ton",
     },
     targetPrice: {
       type: Number,
