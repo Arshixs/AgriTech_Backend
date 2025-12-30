@@ -116,14 +116,92 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-// 4. COMPLETE PROFILE - New endpoint
+// // 4. COMPLETE PROFILE - New endpoint
+// exports.completeProfile = async (req, res) => {
+//   try {
+//     const { govtId } = req.user;
+//     const {
+//       name,
+//       email,
+//       // employeeId,
+//       //designation,
+//       homeAddress,
+//       maritalStatus,
+//       accountNumber,
+//       IFSCCode,
+//       phone,
+//       documents,
+//     } = req.body;
+
+//     // Validate required fields
+//     if (!name || !email) {
+//       return res.status(400).json({
+//         message: "Name, Email are required",
+//       });
+//     }
+
+//      const employee = await GovtEmployee.findOne({ phone });
+
+//     if (!employee) {
+//       return res.status(404).json({ message: "Employee not found" });
+//     }
+
+//     if (employee.profileComplete) {
+//       return res.status(400).json({
+//         message: "Profile already completed",
+//       });
+//     }
+
+//     // Update employee details
+//     employee.name = name;
+//     employee.email = email;
+//     //employee.employeeId = employeeId;
+//     //employee.designation = designation;
+//     employee.homeAddress = homeAddress;
+//     employee.maritalStatus = maritalStatus;
+//     employee.accountNumber = accountNumber;
+//     employee.IFSCCode = IFSCCode;
+//     employee.documents = documents;
+//     employee.profileComplete = true;
+//     employee.verificationStatus = "pending";
+
+//     await employee.save();
+
+//     res.status(200).json({
+//       message: "Profile completed successfully. Awaiting admin verification.",
+//       employee: {
+//         id: employee._id,
+//         name: employee.name,
+//         email: employee.email,
+//         profileComplete: employee.profileComplete,
+//         verificationStatus: employee.verificationStatus,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Complete Profile Error:", error);
+//     if (error.code === 11000) {
+//       const field = Object.keys(error.keyPattern || {})[0];
+//       return res.status(400).json({
+//         message: `${field} already exists`,
+//       });
+//     }
+//     res.status(500).json({ message: "Server Error completing profile" });
+//   }
+// };
+// File: controllers/govtAuthController.js (Updated completeProfile function)
+
+// Add this validation function at the top
+const isValidFirebaseUrl = (url) => {
+  return url && url.startsWith('https://firebasestorage.googleapis.com');
+};
+
+// 4. COMPLETE PROFILE - Updated with Firebase URL validation
 exports.completeProfile = async (req, res) => {
   try {
     const { govtId } = req.user;
     const {
       name,
       email,
-      // employeeId,
       //designation,
       homeAddress,
       maritalStatus,
@@ -136,11 +214,26 @@ exports.completeProfile = async (req, res) => {
     // Validate required fields
     if (!name || !email) {
       return res.status(400).json({
-        message: "Name, Email are required",
+        message: "Name and Email are required",
       });
     }
 
-     const employee = await GovtEmployee.findOne({ phone });
+    // Validate documents
+    if (!documents || !documents.idProof || !documents.addressProof) {
+      return res.status(400).json({
+        message: "ID Proof and Address Proof are required",
+      });
+    }
+
+    // Validate Firebase URLs
+    if (!isValidFirebaseUrl(documents.idProof) || 
+        !isValidFirebaseUrl(documents.addressProof)) {
+      return res.status(400).json({
+        message: "Invalid document URLs. Please upload documents again.",
+      });
+    }
+
+    const employee = await GovtEmployee.findOne({ phone });
 
     if (!employee) {
       return res.status(404).json({ message: "Employee not found" });
@@ -155,13 +248,17 @@ exports.completeProfile = async (req, res) => {
     // Update employee details
     employee.name = name;
     employee.email = email;
-    //employee.employeeId = employeeId;
     //employee.designation = designation;
     employee.homeAddress = homeAddress;
     employee.maritalStatus = maritalStatus;
     employee.accountNumber = accountNumber;
     employee.IFSCCode = IFSCCode;
-    employee.documents = documents;
+    employee.documents = {
+      idProof: documents.idProof,
+      addressProof: documents.addressProof,
+      employmentLetter: documents.employmentLetter || null,
+      qualificationCertificate: documents.qualificationCertificate || null,
+    };
     employee.profileComplete = true;
     employee.verificationStatus = "pending";
 
