@@ -23,6 +23,7 @@ const authRoutes = require("./routers/authRoutes");
 const bidRoutes = require("./routers/bidRoutes");
 //const cropOutputRoutes = require("./routers/cropOutputRoutes");
 const buyerRequirementRoutes = require("./routers/buyerRequirementRoutes");
+ const adminRoutes = require("./routers/adminRoutes");
 
 
 const app = express();
@@ -37,6 +38,8 @@ app.use(
 );
 
 // Routes
+// Add this line with other route uses:
+app.use("/api/admin", adminRoutes);
 app.use("/api/quality", qualityRoutes);
 app.use("/api/crops", cropRoutes);
 app.use("/api/crop-output", cropOutputRoutes);

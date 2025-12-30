@@ -11,7 +11,8 @@ logs
 *.log
 npm-audit-report.json
 
-
+scripts
+config
 pids
 *.pid
 *.seed
