@@ -21,16 +21,21 @@ const requirementOfferSchema = new mongoose.Schema(
 
     // --- 2. OFFER TERMS ---
     pricePerUnit: {
-      type: Number, // The price the Farmer wants (might differ from Buyer's target)
+      type: Number,
       required: true,
     },
     quantity: {
-      type: Number, // The amount the Farmer can supply
+      type: Number,
       required: true,
     },
     availableDate: {
-      type: Date, // When the crop will be ready for delivery/pickup
+      type: Date,
       required: true,
+    },
+    message: {
+      type: String,
+      trim: true,
+      maxlength: 500,
     },
 
     // --- 3. STATUS ---
