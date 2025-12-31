@@ -57,13 +57,13 @@ exports.createOffer = async (req, res) => {
 // 2. GET OFFERS FOR A REQUIREMENT (Buyer Side)
 exports.getOffersForRequirement = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const { buyerId } = req.user;
     const { requirementId } = req.params;
-
+    
     // Verify ownership
     const requirement = await BuyerRequirement.findOne({
       _id: requirementId,
-      buyer: userId,
+      buyer: buyerId,
     });
     if (!requirement) {
       return res
@@ -102,7 +102,7 @@ exports.getMyOffers = async (req, res) => {
 // 4. ACCEPT / REJECT OFFER (Buyer Side)
 exports.updateOfferStatus = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const { buyerId } = req.user;
     const { offerId } = req.params;
     const { status } = req.body; // 'accepted' or 'rejected'
 
@@ -112,7 +112,7 @@ exports.updateOfferStatus = async (req, res) => {
 
     const offer = await RequirementOffer.findOne({
       _id: offerId,
-      buyer: userId,
+      buyer: buyerId,
     });
     if (!offer) {
       return res.status(404).json({ message: "Offer not found" });
