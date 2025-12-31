@@ -61,7 +61,7 @@ const qualityRequestSchema = new mongoose.Schema(
     // Grading Results
     grade: {
       type: String,
-      enum: ["FAQ", "A", "B", "C", "Rejected"],
+      enum: [ "A", "B", "C","1","2","3","4","Special","Standard","General","Good","Fair","Ghani Cake", "Rejected"],
     },
     qualityParams: {
       moisture: Number,
