@@ -23,8 +23,8 @@ const authRoutes = require("./routers/authRoutes");
 const bidRoutes = require("./routers/bidRoutes");
 //const cropOutputRoutes = require("./routers/cropOutputRoutes");
 const buyerRequirementRoutes = require("./routers/buyerRequirementRoutes");
- const adminRoutes = require("./routers/adminRoutes");
-
+const adminRoutes = require("./routers/adminRoutes");
+const requirementOfferRoutes = require("./routers/requirementOfferRoutes");
 
 const app = express();
 
@@ -58,6 +58,7 @@ app.use("/api/farmer-auth", farmerAuthRoutes);
 app.use("/api/farm", farmRoutes);
 app.use("/api/data", dataRoutes);
 app.use("/api/bids", bidRoutes);
+app.use("/api/requirement-offers", requirementOfferRoutes);
 
 app.get("/health", (req, res) => {
   res.status(200).json({
