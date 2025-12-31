@@ -75,7 +75,7 @@ exports.searchRequestByLotId = async (req, res) => {
   try {
     const { lotId } = req.params;
 
-    const request = await QualityRequest.findById(lotId)
+    const request = await QualityRequest.findOne({lotId})
       .populate("farmerId", "name phone address adharNumber")
       .populate("fieldId", "name area crop soilType")
       .populate("cropId", "cropName");
@@ -182,12 +182,13 @@ exports.getGradingStats = async (req, res) => {
 // ============ CREATE & SUBMIT GRADING ============
 
 // Farmer creates quality request (UPDATED)
+const generateLotId = require("../utils/generateLotId");
+
 exports.createQualityRequest = async (req, res) => {
   try {
     const { userId } = req.user;
     const { cropOutputId, storageLocation } = req.body;
 
-    // Get crop output
     const cropOutput = await CropOutput.findOne({
       _id: cropOutputId,
       farmerId: userId,
@@ -197,14 +198,15 @@ exports.createQualityRequest = async (req, res) => {
       return res.status(404).json({ message: "Crop output not found" });
     }
 
-    // Check if quality request already exists
     if (cropOutput.qualityStatus === "pending") {
       return res
         .status(400)
         .json({ message: "Quality request already exists for this output" });
     }
 
-    // Create quality request
+    // 🔐 Generate guaranteed-unique lotId
+    const lotId = await generateLotId();
+
     const qualityRequest = new QualityRequest({
       farmerId: userId,
       fieldId: cropOutput.fieldId._id,
@@ -214,11 +216,11 @@ exports.createQualityRequest = async (req, res) => {
       unit: cropOutput.unit,
       harvestDate: cropOutput.harvestDate,
       storageLocation: storageLocation || cropOutput.storageLocation,
+      lotId,
     });
 
     await qualityRequest.save();
 
-    // Update crop output QUALITY STATUS only
     cropOutput.qualityStatus = "pending";
     cropOutput.qualityRequestId = qualityRequest._id;
     await cropOutput.save();
@@ -232,6 +234,58 @@ exports.createQualityRequest = async (req, res) => {
     res.status(500).json({ message: "Server Error" });
   }
 };
+
+// exports.createQualityRequest = async (req, res) => {
+//   try {
+//     const { userId } = req.user;
+//     const { cropOutputId, storageLocation } = req.body;
+
+//     // Get crop output
+//     const cropOutput = await CropOutput.findOne({
+//       _id: cropOutputId,
+//       farmerId: userId,
+//     }).populate("cropId fieldId");
+
+//     if (!cropOutput) {
+//       return res.status(404).json({ message: "Crop output not found" });
+//     }
+
+//     // Check if quality request already exists
+//     if (cropOutput.qualityStatus === "pending") {
+//       return res
+//         .status(400)
+//         .json({ message: "Quality request already exists for this output" });
+//     }
+
+//     // Create quality request
+//     const qualityRequest = new QualityRequest({
+//       farmerId: userId,
+//       fieldId: cropOutput.fieldId._id,
+//       cropOutputId: cropOutput._id,
+//       cropId: cropOutput.cropId._id,
+//       quantity: cropOutput.quantity,
+//       unit: cropOutput.unit,
+//       harvestDate: cropOutput.harvestDate,
+//       storageLocation: storageLocation || cropOutput.storageLocation,
+//     });
+
+//     await qualityRequest.save();
+    
+
+//     // Update crop output QUALITY STATUS only
+//     cropOutput.qualityStatus = "pending";
+//     cropOutput.qualityRequestId = qualityRequest._id;
+//     await cropOutput.save();
+
+//     res.status(201).json({
+//       message: "Quality request created successfully",
+//       request: qualityRequest,
+//     });
+//   } catch (error) {
+//     console.error("Create Quality Request Error:", error);
+//     res.status(500).json({ message: "Server Error" });
+//   }
+// };
 
 // Government submits grading (UPDATED)
 exports.submitGrading = async (req, res) => {
