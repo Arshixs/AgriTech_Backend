@@ -45,6 +45,12 @@ const qualityRequestSchema = new mongoose.Schema(
       enum: ["pending", "in-progress", "approved", "rejected"],
       default: "pending",
     },
+    lotId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
 
     // Assignment
     assignedOfficer: {
@@ -61,7 +67,22 @@ const qualityRequestSchema = new mongoose.Schema(
     // Grading Results
     grade: {
       type: String,
-      enum: [ "A", "B", "C","1","2","3","4","Special","Standard","General","Good","Fair","Ghani Cake", "Rejected"],
+      enum: [
+        "A",
+        "B",
+        "C",
+        "1",
+        "2",
+        "3",
+        "4",
+        "Special",
+        "Standard",
+        "General",
+        "Good",
+        "Fair",
+        "Ghani Cake",
+        "Rejected",
+      ],
     },
     qualityParams: {
       moisture: Number,
