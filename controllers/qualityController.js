@@ -130,6 +130,7 @@ exports.getOfficerRequests = async (req, res) => {
     const requests = await QualityRequest.find({ assignedOfficer: govtId })
       .populate("farmerId", "name phone address")
       .populate("fieldId", "name area")
+      .populate("cropId", "cropName")
       .sort({ createdAt: -1 });
 
     res.status(200).json({ requests });
