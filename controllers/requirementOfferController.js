@@ -4,7 +4,8 @@ const BuyerRequirement = require("../models/BuyerRequirement");
 // 1. CREATE OFFER (Farmer Side)
 exports.createOffer = async (req, res) => {
   try {
-    const { farmerId, role } = req.user;
+    const { userId, role } = req.user;
+    console.log(`Hello world farmerID: ${userId} :: ${role}`);
 
     // Ensure only farmers can offer
     if (role !== "farmer") {
@@ -31,8 +32,8 @@ exports.createOffer = async (req, res) => {
     // Create the Offer
     const offer = new RequirementOffer({
       requirement: requirementId,
-      buyer: buyerId,
-      farmer: farmerId,
+      buyer: requirement.buyer,
+      farmer: userId,
       pricePerUnit,
       quantity,
       availableDate,
@@ -56,13 +57,13 @@ exports.createOffer = async (req, res) => {
 // 2. GET OFFERS FOR A REQUIREMENT (Buyer Side)
 exports.getOffersForRequirement = async (req, res) => {
   try {
-    const { buyerId } = req.user;
+    const { userId } = req.user;
     const { requirementId } = req.params;
 
     // Verify ownership
     const requirement = await BuyerRequirement.findOne({
       _id: requirementId,
-      buyer: buyerId,
+      buyer: userId,
     });
     if (!requirement) {
       return res
@@ -84,9 +85,9 @@ exports.getOffersForRequirement = async (req, res) => {
 // 3. GET MY OFFERS (Farmer Side)
 exports.getMyOffers = async (req, res) => {
   try {
-    const { farmerId } = req.user;
+    const { userId } = req.user;
 
-    const offers = await RequirementOffer.find({ farmer: farmerId })
+    const offers = await RequirementOffer.find({ farmer: userId })
       .populate("requirement", "cropName category quantity unit") // Show what they applied for
       .populate("buyer", "companyName") // Show who they applied to
       .sort({ createdAt: -1 });
@@ -101,7 +102,7 @@ exports.getMyOffers = async (req, res) => {
 // 4. ACCEPT / REJECT OFFER (Buyer Side)
 exports.updateOfferStatus = async (req, res) => {
   try {
-    const { buyerId } = req.user;
+    const { userId } = req.user;
     const { offerId } = req.params;
     const { status } = req.body; // 'accepted' or 'rejected'
 
@@ -111,7 +112,7 @@ exports.updateOfferStatus = async (req, res) => {
 
     const offer = await RequirementOffer.findOne({
       _id: offerId,
-      buyer: buyerId,
+      buyer: userId,
     });
     if (!offer) {
       return res.status(404).json({ message: "Offer not found" });
