@@ -59,7 +59,7 @@ exports.getOffersForRequirement = async (req, res) => {
   try {
     const { buyerId } = req.user;
     const { requirementId } = req.params;
-    
+
     // Verify ownership
     const requirement = await BuyerRequirement.findOne({
       _id: requirementId,
@@ -121,9 +121,19 @@ exports.updateOfferStatus = async (req, res) => {
     offer.status = status;
     await offer.save();
 
-    // OPTIONAL: If accepted, you might want to mark the Requirement as "fulfilled"
-    // or create a formal Contract/Order record here.
-    // For now, we just update the offer status.
+    if (status === "accepted") {
+      // Find the requirement
+      const buyerRequirement = await BuyerRequirement.findById(
+        offer.requirement
+      );
+
+      if (buyerRequirement) {
+        buyerRequirement.status = "fulfilled";
+        buyerRequirement.fulfilledBy = offer.farmer;
+
+        await buyerRequirement.save();
+      }
+    }
 
     res.status(200).json({ message: `Offer ${status} successfully`, offer });
   } catch (error) {
