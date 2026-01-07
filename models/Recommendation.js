@@ -6,6 +6,11 @@ const recommendationSchema = new mongoose.Schema({
         ref: 'Farmer',
         required: true,
     },
+    fieldId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Field',
+        required: true,
+    },
     dateGenerated: {
         type: Date,
         default: Date.now,
@@ -28,5 +33,7 @@ const recommendationSchema = new mongoose.Schema({
         ref: 'SoilAnalysis',
     }
 }, { timestamps: true });
+
+recommendationSchema.index({ fieldId: 1, dateGenerated: -1 });
 
 module.exports = mongoose.model('Recommendation', recommendationSchema);
