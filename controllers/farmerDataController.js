@@ -1,14 +1,15 @@
-require("dotenv").config();
-const Alert = require("../models/Alert");
-const SoilAnalysis = require("../models/SoilAnalysis");
-const Weather = require("../models/Weather");
-const Recommendation = require("../models/Recommendation");
-const Forecast = require("../models/Forecast");
-const IotDevice = require("../models/IotDevice");
-const Farmer = require("../models/Farmer");
-const Order = require("../models/Order");
-const Sale = require("../models/Sale");
-const CropMaster = require("../models/CropMaster");
+require('dotenv').config();
+const Alert = require('../models/Alert');
+const SoilAnalysis = require('../models/SoilAnalysis');
+const Weather = require('../models/Weather');
+const Recommendation = require('../models/Recommendation');
+const Forecast = require('../models/Forecast');
+const IotDevice = require('../models/IotDevice');
+const Farmer = require('../models/Farmer');
+const Field = require('../models/Field');
+
+
+
 
 // Utility function to extract farmer ID from the JWT payload
 const getFarmerId = (req) => req.user.userId;
@@ -17,225 +18,209 @@ const WEATHER_API_KEY = process.env.WEATHER_API_KEY;
 const WEATHER_API_BASE_URL = process.env.WEATHER_API_BASE_URL;
 
 // Helper to map external WeatherAPI data to internal Weather model structure
-const mapWeatherResponse = (weatherData) => {
-  const current = weatherData.current;
-  const location = weatherData.location;
+const mapWeatherResponse = (weatherData, farmerId, fieldId) => {
+    const current = weatherData.current;
+    const location = weatherData.location;
 
-  // Use current API response structure mapping
-  return {
-    location: `${location.name}, ${location.region}`,
-    temperature: current.temp_c,
-    humidity: current.humidity,
-    // Using precip_mm for rainfall
-    rainfall: current.precip_mm,
-    // Using wind_kph for windSpeed
-    windSpeed: current.wind_kph,
-    condition: current.condition.text,
-    dateUpdated: new Date(),
-  };
+    // Use current API response structure mapping
+    return {
+        farmerId,
+        fieldId,
+        location: `${location.name}, ${location.region}`,
+        temperature: current.temp_c,
+        humidity: current.humidity,
+        // Using precip_mm for rainfall
+        rainfall: current.precip_mm, 
+        // Using wind_kph for windSpeed
+        windSpeed: current.wind_kph, 
+        condition: current.condition.text,
+        dateUpdated: new Date(),
+    };
 };
 
 // Helper to map WeatherAPI Alerts (from alerts.json endpoint) to internal Alert model structure
-const mapAlertsResponse = (alertsData, farmerId) => {
-  // API returns alerts: { alert: [...] }
-  const alertsArray = alertsData.alert || [];
-
-  return alertsArray.map((alert) => ({
-    farmerId: farmerId,
-    type: "weather",
-    // Map severity based on the API response field
-    severity: alert.severity || "Moderate",
-    title: alert.headline || "Weather Alert",
-    // Using the detailed description from the API response
-    description: alert.desc || alert.note || alert.headline,
-    dateGenerated: new Date(alert.effective || Date.now()),
-    crop: "Farm-wide",
-  }));
+const mapAlertsResponse = (alertsData, farmerId,fieldId) => {
+    // API returns alerts: { alert: [...] }
+    const alertsArray = alertsData.alert || [];
+    
+    return alertsArray.map(alert => ({
+        farmerId: farmerId,
+        fieldId: fieldId,
+        type: 'weather', 
+        // Map severity based on the API response field
+        severity: alert.severity || 'Moderate', 
+        title: alert.headline || 'Weather Alert',
+        // Using the detailed description from the API response
+        description: alert.desc || alert.note || alert.headline,
+        dateGenerated: new Date(alert.effective || Date.now()),
+        crop: 'Farm-wide', 
+    }));
 };
 
 // --- Core Weather Fetch Logic: Live API + Cache Update ---
 
 // This function now only fetches and caches weather, used as a sub-function by both controllers.
-async function fetchLiveWeather(farmerId) {
-  const farmer = await Farmer.findById(farmerId)
-    .select("coordinates address")
-    .lean();
+async function fetchLiveWeather(farmerId, fieldId) {
+    
+    // Fetch coordinates from the specific Field model instead of the Farmer model
+    const field = await Field.findOne({ _id: fieldId, farmerId }).select('coordinates').lean();
+    if (!field || !field.coordinates || !field.coordinates.lat || !field.coordinates.lng) {
+        throw new Error("Field location coordinates missing.");
+    }
+    
+    const q = `${field.coordinates.lat},${field.coordinates.lng}`;
+    
+    const url = `${WEATHER_API_BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${q}&aqi=no`;
 
-  if (
-    !farmer ||
-    !farmer.coordinates ||
-    !farmer.coordinates.lat ||
-    !farmer.coordinates.lng
-  ) {
-    throw new Error("Farmer profile missing location coordinates.");
-  }
-
-  const q = `${farmer.coordinates.lat},${farmer.coordinates.lng}`;
-  // Use the CURRENT endpoint for minimal data fetch for caching the current state
-  const url = `${WEATHER_API_BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${q}&aqi=no`;
-
-  // 1. Attempt Live Fetch
-  const response = await fetch(url);
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `External Current Weather API failed with status ${response.status}: ${errorText}`
+    const response = await fetch(url);
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`External Weather API failed: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    const mappedWeather = mapWeatherResponse(data, farmerId, fieldId);
+    
+    await Weather.findOneAndUpdate(
+        { fieldId },
+        { $set: mappedWeather },
+        { new: true, upsert: true }
     );
-  }
-
-  const data = await response.json();
-
-  // 2. Map and Cache Weather Data
-  const mappedWeather = mapWeatherResponse(data);
-
-  await Weather.findOneAndUpdate(
-    { farmerId },
-    { $set: mappedWeather },
-    { new: true, upsert: true } // Creates or updates the cache
-  );
 
   return mappedWeather;
 }
 
-// --- 1. Weather Controller (Updated for Live/Cache Logic) ---
-
-// GET /api/data/weather
+// --- 1. Weather Controller (Field Level) ---
 exports.getCurrentWeather = async (req, res) => {
-  const farmerId = getFarmerId(req);
-  let weatherData = null;
-  let source = "cache";
+    const farmerId = getFarmerId(req);
+    
+    const { fieldId } = req.query;
 
-  try {
-    // Attempt to fetch live data (Primary Action)
-    weatherData = await fetchLiveWeather(farmerId);
-    source = "live";
-  } catch (liveError) {
-    // Live API failed or location was missing (Fallback Action)
-    console.warn(
-      `Live fetch/location failed for Farmer ${farmerId}: ${liveError.message}. Falling back to cache.`
-    );
-
-    const cachedWeather = await Weather.findOne({ farmerId }).sort({
-      dateUpdated: -1,
-    });
-
-    if (cachedWeather) {
-      // Use cached data
-      weatherData = cachedWeather;
-    } else {
-      // Failed to fetch live, and no cache exists
-      return res.status(503).json({
-        message:
-          "Weather service currently unavailable and no cached data exists.",
-      });
+    if (!fieldId) {
+        return res.status(400).json({ message: 'fieldId query parameter is required.' });
     }
-  }
 
-  // Return data, guaranteed to be structured correctly
-  res.status(200).json({
-    weather: weatherData,
-    source: source,
-  });
+    let weatherData = null;
+    let source = 'cache';
+
+    try {
+        console.log(farmerId);
+        console.log(farmerId);
+        weatherData = await fetchLiveWeather(farmerId, fieldId);
+        source = 'live';
+    } catch (liveError) {
+        console.warn(`Live fetch failed for Field ${fieldId}: ${liveError.message}. Falling back to cache.`);
+        const cachedWeather = await Weather.findOne({ fieldId }).sort({ dateUpdated: -1 });
+
+        if (cachedWeather) {
+            weatherData = cachedWeather;
+        } else {
+            // return res.status(503).json({ message: 'Weather service unavailable for this field and no cache exists.' });
+            return res.status(200).json({ 
+                weather: { 
+                    location: "Connecting to station...", 
+                    temperature: "...", 
+                    condition: "Initializing", 
+                    humidity: "..." 
+                },
+                source: 'initializing'
+            });
+        }
+    }
+
+    res.status(200).json({ 
+        weather: weatherData,
+        source: source
+    });
 };
 
-// --- 2. Alerts Controller ---
-
-// GET /api/data/alerts
+// --- 2. Alerts Controller (Field Level) ---
 exports.getFarmerAlerts = async (req, res) => {
-  const farmerId = getFarmerId(req);
+    const farmerId = getFarmerId(req);
+    const { fieldId } = req.query;
 
-  // 1. Attempt to sync alerts from the dedicated API endpoint
-  try {
-    const farmer = await Farmer.findById(farmerId).select("coordinates").lean();
-
-    if (
-      farmer &&
-      farmer.coordinates &&
-      farmer.coordinates.lat &&
-      farmer.coordinates.lng
-    ) {
-      const q = `${farmer.coordinates.lat},${farmer.coordinates.lng}`;
-      const url = `${WEATHER_API_BASE_URL}/alerts.json?key=${WEATHER_API_KEY}&q=${q}`;
-
-      const response = await fetch(url);
-
-      if (response.ok) {
-        const data = await response.json();
-
-        // Process and Store Alerts
-        const mappedAlerts = mapAlertsResponse(data.alerts, farmerId);
-
-        // Clear existing weather alerts before inserting new ones
-        await Alert.deleteMany({ farmerId, type: "weather" });
-
-        if (mappedAlerts.length > 0) {
-          await Alert.insertMany(mappedAlerts);
-        }
-      } else {
-        console.warn(
-          `External Alerts API failed with status ${response.status}.`
-        );
-      }
+    if (!fieldId) {
+        return res.status(400).json({ message: 'fieldId query parameter is required.' });
     }
-  } catch (error) {
-    console.error("Critical Alert Sync Failure:", error);
-  }
+    
+    try {
+        const field = await Field.findOne({ _id: fieldId, farmerId }).select('coordinates').lean();
 
-  // 2. Fetch all current alerts (including any updated weather alerts)
-  try {
-    const alerts = await Alert.find({ farmerId }).sort({ dateGenerated: -1 });
-
-    res.status(200).json({ alerts });
-  } catch (error) {
-    console.error("Server Error retrieving alerts:", error);
-    res.status(500).json({ message: "Server Error retrieving alerts" });
-  }
+        if (field && field.coordinates && field.coordinates.lat && field.coordinates.lng) {
+            const q = `${field.coordinates.lat},${field.coordinates.lng}`;
+            const url = `${WEATHER_API_BASE_URL}/alerts.json?key=${WEATHER_API_KEY}&q=${q}`;
+            
+            const response = await fetch(url);
+            
+            if (response.ok) {
+                const data = await response.json();
+                const mappedAlerts = mapAlertsResponse(data.alerts || {}, farmerId, fieldId);
+                
+                // Clear existing weather alerts for THIS field before inserting new ones
+                await Alert.deleteMany({ fieldId, type: 'weather' });
+                
+                if (mappedAlerts.length > 0) {
+                    await Alert.insertMany(mappedAlerts);
+                }
+            }
+        }
+    } catch (error) {
+        console.error("Critical Alert Sync Failure:", error);
+    }
+    
+    try {
+        // Fetch alerts specific to this field
+        const alerts = await Alert.find({ fieldId }).sort({ dateGenerated: -1 });
+        res.status(200).json({ alerts });
+    } catch (error) {
+        console.error("Server Error retrieving alerts:", error);
+        res.status(500).json({ message: 'Server Error retrieving alerts' });
+    }
 };
 
 // --- 2. Recommendations & Soil ---
 
 // GET /api/data/soil/latest
 exports.getLatestSoilData = async (req, res) => {
-  try {
-    const farmerId = getFarmerId(req);
+    try {
+        const farmerId = getFarmerId(req);
+        const { fieldId } = req.query;
 
-    // Find the most recently submitted soil analysis for the farmer
-    const latestSoil = await SoilAnalysis.findOne({ farmerId })
-      .sort({ dateTested: -1 })
-      .limit(1);
+        if (!fieldId) {
+            return res.status(400).json({ message: 'fieldId is required for specific soil analysis.' });
+        }
 
-    if (!latestSoil) {
-      // Return default/empty structure if no analysis exists
-      return res.status(200).json({
-        message: "No soil analysis found.",
-        soilData: {
-          pH: null,
-          nitrogen: null,
-          phosphorus: null,
-          potassium: null,
-          soilType: null,
-        },
-      });
+        // Find the latest soil report specifically for THIS field
+        const latestSoil = await SoilAnalysis.findOne({ farmerId, fieldId })
+            .sort({ dateTested: -1 });
+
+        if (!latestSoil) {
+            return res.status(200).json({
+                message: 'No soil analysis found for this field.',
+                soilData: null
+            });
+        }
+        
+        res.status(200).json({ soilData: latestSoil });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server Error retrieving soil analysis' });
     }
-
-    res.status(200).json({ soilData: latestSoil });
-  } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ message: "Server Error retrieving latest soil analysis" });
-  }
 };
 
 // GET /api/data/recommendations
 exports.getCropRecommendations = async (req, res) => {
-  try {
-    const farmerId = getFarmerId(req);
-
-    // Find the most recently calculated recommendation set
-    const recommendationSet = await Recommendation.findOne({ farmerId })
-      .sort({ dateGenerated: -1 })
-      .limit(1);
+    try {
+        const farmerId = getFarmerId(req);
+        const { fieldId } = req.query;
+        
+        // Find the most recently calculated recommendation set
+        const recommendationSet = await Recommendation.findOne({ 
+            farmerId, 
+            fieldId // Critical fix: Filter by fieldId
+        })
+            .sort({ dateGenerated: -1 })
+            .limit(1);
 
     if (!recommendationSet) {
       // Return empty array if no recommendations have been generated
