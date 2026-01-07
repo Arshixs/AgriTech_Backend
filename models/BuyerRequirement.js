@@ -102,6 +102,11 @@ const buyerRequirementSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    fulfilledBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Farmer",
+      required: false,
+    },
   },
   { timestamps: true }
 );

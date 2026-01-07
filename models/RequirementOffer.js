@@ -41,7 +41,7 @@ const requirementOfferSchema = new mongoose.Schema(
     // --- 3. STATUS ---
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected"],
+      enum: ["pending", "accepted", "rejected", "cancelled"],
       default: "pending",
     },
   },
