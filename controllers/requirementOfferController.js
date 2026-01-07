@@ -71,8 +71,11 @@ exports.getOffersForRequirement = async (req, res) => {
         .json({ message: "Access denied or requirement not found." });
     }
 
-    const offers = await RequirementOffer.find({ requirement: requirementId })
-      .populate("farmer", "name phone address profileImage") // Show farmer details
+    const offers = await RequirementOffer.find({
+      requirement: requirementId,
+      status: { $ne: "cancelled" },
+    })
+      .populate("farmer", "name phone address profileImage")
       .sort({ createdAt: -1 });
 
     res.status(200).json({ offers });
@@ -85,11 +88,16 @@ exports.getOffersForRequirement = async (req, res) => {
 // 3. GET MY OFFERS (Farmer Side)
 exports.getMyOffers = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const { userId, role } = req.user;
+
+    // ✅ Add role check
+    if (role !== "farmer") {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
     const offers = await RequirementOffer.find({ farmer: userId })
-      .populate("requirement", "cropName category quantity unit") // Show what they applied for
-      .populate("buyer", "companyName") // Show who they applied to
+      .populate("requirement", "cropName category quantity unit")
+      .populate("buyer", "companyName phone")
       .sort({ createdAt: -1 });
 
     res.status(200).json({ offers });
@@ -104,7 +112,7 @@ exports.updateOfferStatus = async (req, res) => {
   try {
     const { buyerId } = req.user;
     const { offerId } = req.params;
-    const { status } = req.body; // 'accepted' or 'rejected'
+    const { status } = req.body;
 
     if (!["accepted", "rejected"].includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
@@ -113,31 +121,93 @@ exports.updateOfferStatus = async (req, res) => {
     const offer = await RequirementOffer.findOne({
       _id: offerId,
       buyer: buyerId,
+      status: "pending", // ✅ Only update pending offers
     });
+
     if (!offer) {
-      return res.status(404).json({ message: "Offer not found" });
+      return res.status(404).json({
+        message: "Offer not found or already processed",
+      });
+    }
+
+    if (status === "accepted") {
+      // ✅ Check if requirement is still active
+      const buyerRequirement = await BuyerRequirement.findOne({
+        _id: offer.requirement,
+        status: "active",
+      });
+
+      if (!buyerRequirement) {
+        return res.status(400).json({
+          message: "Requirement is no longer active",
+        });
+      }
+
+      // Update requirement
+      buyerRequirement.status = "fulfilled";
+      buyerRequirement.fulfilledBy = offer.farmer;
+      await buyerRequirement.save();
+
+      // Reject all other offers
+      await RequirementOffer.updateMany(
+        {
+          requirement: offer.requirement,
+          _id: { $ne: offer._id },
+          status: "pending",
+        },
+        {
+          $set: { status: "rejected" },
+        }
+      );
     }
 
     offer.status = status;
     await offer.save();
 
-    if (status === "accepted") {
-      // Find the requirement
-      const buyerRequirement = await BuyerRequirement.findById(
-        offer.requirement
-      );
-
-      if (buyerRequirement) {
-        buyerRequirement.status = "fulfilled";
-        buyerRequirement.fulfilledBy = offer.farmer;
-
-        await buyerRequirement.save();
-      }
-    }
-
     res.status(200).json({ message: `Offer ${status} successfully`, offer });
   } catch (error) {
     console.error("Update Status Error:", error);
+    res.status(500).json({ message: "Server Error" });
+  }
+};
+
+// 5. CANCEL OFFER (Farmer Side)
+exports.cancelOffer = async (req, res) => {
+  try {
+    const { userId, role } = req.user;
+    const { offerId } = req.params;
+
+    // ✅ Add role check
+    if (role !== "farmer") {
+      return res
+        .status(403)
+        .json({ message: "Only farmers can cancel offers" });
+    }
+
+    // ✅ Add farmer ownership check
+    const offer = await RequirementOffer.findOne({
+      _id: offerId,
+      farmer: userId,
+      status: "pending", // ✅ Only cancel pending offers
+    });
+
+    if (!offer) {
+      return res.status(404).json({
+        message: "Offer not found or cannot be cancelled",
+      });
+    }
+
+    offer.status = "cancelled";
+    await offer.save();
+
+    // ✅ Decrement offer count
+    await BuyerRequirement.findByIdAndUpdate(offer.requirement, {
+      $inc: { totalOffersReceived: -1 },
+    });
+
+    res.status(200).json({ message: "Offer cancelled successfully", offer });
+  } catch (error) {
+    console.error("Cancel Offer Error:", error);
     res.status(500).json({ message: "Server Error" });
   }
 };

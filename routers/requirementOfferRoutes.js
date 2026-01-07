@@ -5,6 +5,7 @@ const {
   getOffersForRequirement,
   getMyOffers,
   updateOfferStatus,
+  cancelOffer,
 } = require("../controllers/requirementOfferController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -18,5 +19,6 @@ router.get("/my-offers", getMyOffers); // GET /api/requirement-offers/my-offers 
 // Buyer Routes
 router.get("/requirement/:requirementId", getOffersForRequirement); // GET /api/requirement-offers/requirement/:id
 router.put("/:offerId/status", updateOfferStatus); // PUT /api/requirement-offers/:id/status (Accept/Reject)
+router.post("/:offerId/cancel", cancelOffer); // POST /api/requirement-offers/:id/cancel
 
 module.exports = router;
