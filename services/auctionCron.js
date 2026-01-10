@@ -3,6 +3,8 @@ const cron = require("node-cron");
 const Sale = require("../models/Sale");
 const Bid = require("../models/Bid");
 const CropOutput = require("../models/CropOutput");
+const Farmer = require("../models/Farmer");
+const MarketPrice = require("../models/MarketPrice");
 
 const checkAuctionStatus = async (io) => {
   console.log("⏳ Running Auction Status Check...");
@@ -45,6 +47,19 @@ const checkAuctionStatus = async (io) => {
             },
             { status: "won" }
           );
+
+          // Create market price record
+          if (sale.cropId && sale.farmerId) {
+            const marketPrice = new MarketPrice({
+              crop: sale.cropId.cropName, // Now properly populated
+              date: sale.soldDate,
+              price: sale.finalPrice,
+              location: sale.farmerId.address,
+              coordinates: sale.farmerId.coordinates,
+              unit: sale.unit,
+            });
+            await marketPrice.save();
+          }
 
           // Emit socket event
           if (io) {
