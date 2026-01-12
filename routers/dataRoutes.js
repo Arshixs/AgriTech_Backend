@@ -9,6 +9,7 @@ const {
   getPriceForecast,
   getIotDevices,
   getTransactions,
+  receiveSensorData
 } = require("../controllers/farmerDataController");
 const {
   predictCropProfitability,
@@ -33,5 +34,6 @@ router.get("/expenses/predict", protect, predictCropProfitability);
 
 router.get("/iot/devices", protect, getIotDevices);
 router.get("/transactions", protect, getTransactions);
+router.post("/iot/sensor-readings", receiveSensorData);
 
 module.exports = router;

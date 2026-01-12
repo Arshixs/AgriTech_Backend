@@ -374,3 +374,65 @@ exports.getTransactions = async (req, res) => {
     res.status(500).json({ message: "Error fetching transactions" });
   }
 };
+
+// POST /api/data/iot/sensor-readings (Non-Protected)
+exports.receiveSensorData = async (req, res) => {
+    try {
+        // 1. Extract data from the request body
+        // The Python script will send these values
+        const { farmerId, fieldId, temperature, humidity } = req.body;
+
+        // 2. Basic Validation
+        if (!farmerId || !fieldId || temperature === undefined || humidity === undefined) {
+            return res.status(400).json({ 
+                message: 'Missing required fields: farmerId, fieldId, temperature, humidity' 
+            });
+        }
+
+        // 3. Find the specific device
+        // We assume the device type is 'weather' for DHT11. 
+        // We look for an existing device registered to this field.
+        let device = await IotDevice.findOne({ 
+            farmerId: farmerId, 
+            fieldId: fieldId,
+            type: 'weather' 
+        });
+
+        // 4. Handle "Device Not Found" 
+        // (Option A: Return 404 - Device must be created in Dashboard first)
+        if (!device) {
+             // Optional: You could Create one on the fly here, but Schema requires 'name' and 'location'.
+             // We will attempt to update the first available device or error out.
+             return res.status(404).json({ 
+                 message: 'No registered weather device found for this field. Please register device in dashboard first.' 
+             });
+        }
+
+        // 5. Update the Device
+        device.readings = {
+            temperature: parseFloat(temperature),
+            humidity: parseFloat(humidity),
+            lastReceived: new Date()
+        };
+        
+        // Update status to active since we just got a signal
+        device.status = 'active'; 
+        
+        // Simple Alert Logic (Optional)
+        device.alerts = []; // Clear old alerts
+        if (parseFloat(temperature) > 40) {
+            device.status = 'warning';
+            device.alerts.push("High Temperature Warning");
+        }
+
+        await device.save();
+
+        console.log(`📡 Sensor data received for Field ${fieldId}: ${temperature}°C, ${humidity}%`);
+
+        return res.status(200).json({ success: true, message: 'Data updated successfully' });
+
+    } catch (error) {
+        console.error("IoT Ingestion Error:", error);
+        return res.status(500).json({ message: 'Server Error processing sensor data' });
+    }
+};
