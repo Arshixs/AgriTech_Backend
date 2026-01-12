@@ -7,6 +7,12 @@ const weatherSchema = new mongoose.Schema({
         required: true,
         unique: true, // Only one current weather record per farmer
     },
+    fieldId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Field',
+        required: true,
+        unique: true, // Only one weather record per specific Field
+    },
     location: {
         type: String, // e.g., 'Varanasi, UP'
         required: true,

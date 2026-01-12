@@ -85,9 +85,11 @@ exports.getMyRequirements = async (req, res) => {
       query.status = status;
     }
 
-    const requirements = await BuyerRequirement.find(query).sort({
-      createdAt: -1,
-    });
+    const requirements = await BuyerRequirement.find(query)
+      .populate("fulfilledBy")
+      .sort({
+        createdAt: -1,
+      });
 
     res.status(200).json({
       count: requirements.length,

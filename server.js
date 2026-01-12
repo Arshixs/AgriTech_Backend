@@ -71,8 +71,8 @@ mongoose
     startAuctionCron(io);
 
     // Start the server only after MongoDB is connected
-    server.listen(port, () => {
-      console.log(`App running on port ${port} by ${process.env.USER}`);
+    server.listen(port, "0.0.0.0", () => {
+      console.log(`App running on port ${port}`);
     });
   })
   .catch((err) => {
