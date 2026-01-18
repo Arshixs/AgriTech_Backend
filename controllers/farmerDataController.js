@@ -57,6 +57,17 @@ const mapAlertsResponse = (alertsData, farmerId,fieldId) => {
     }));
 };
 
+const mapForecastResponse = (forecastData) => {
+    return forecastData.forecastday.map(day => ({
+        date: day.date,
+        avgTemp: day.day.avgtemp_c,
+        condition: day.day.condition.text,
+        icon: day.day.condition.icon, // Useful for frontend images
+        chanceOfRain: day.day.daily_chance_of_rain,
+        windSpeed: day.day.maxwind_kph
+    }));
+};
+
 // --- Core Weather Fetch Logic: Live API + Cache Update ---
 
 // This function now only fetches and caches weather, used as a sub-function by both controllers.
@@ -70,7 +81,7 @@ async function fetchLiveWeather(farmerId, fieldId) {
     
     const q = `${field.coordinates.lat},${field.coordinates.lng}`;
     
-    const url = `${WEATHER_API_BASE_URL}/current.json?key=${WEATHER_API_KEY}&q=${q}&aqi=no`;
+    const url = `${WEATHER_API_BASE_URL}/forecast.json?key=${WEATHER_API_KEY}&days=3&q=${q}&aqi=no`;
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -87,7 +98,10 @@ async function fetchLiveWeather(farmerId, fieldId) {
         { new: true, upsert: true }
     );
 
-  return mappedWeather;
+  return {
+        ...mappedWeather,
+        forecast: mapForecastResponse(data.forecast)
+    };
 }
 
 // --- 1. Weather Controller (Field Level) ---
