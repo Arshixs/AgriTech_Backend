@@ -243,36 +243,89 @@ exports.getCropRecommendations = async (req, res) => {
 // --- 3. Market Prices ---
 
 // GET /api/data/market/forecast
+// exports.getPriceForecast = async (req, res) => {
+//   const { crop, timeframe = "3months" } = req.query;
+
+//   if (!crop) {
+//     return res
+//       .status(400)
+//       .json({ message: "Crop query parameter is required" });
+//   }
+
+//   try {
+//     // Find the most recent forecast generated for this specific crop and timeframe
+//     const marketForecast = await Forecast.findOne({ crop, timeframe })
+//       .sort({ dateGenerated: -1 })
+//       .limit(1);
+
+//     if (!marketForecast) {
+//       return res
+//         .status(404)
+//         .json({ message: `Forecast not found for ${crop} over ${timeframe}.` });
+//     }
+
+//     // Frontend expects the forecast data structure directly
+//     res.status(200).json({ forecast: marketForecast });
+//   } catch (error) {
+//     console.error(error);
+//     res
+//       .status(500)
+//       .json({ message: "Server Error retrieving market price forecast" });
+//   }
+// };
+// controllers/farmerDataController.js
+
 exports.getPriceForecast = async (req, res) => {
-  const { crop, timeframe = "3months" } = req.query;
-
-  if (!crop) {
-    return res
-      .status(400)
-      .json({ message: "Crop query parameter is required" });
-  }
-
   try {
-    // Find the most recent forecast generated for this specific crop and timeframe
-    const marketForecast = await Forecast.findOne({ crop, timeframe })
-      .sort({ dateGenerated: -1 })
-      .limit(1);
+   
+    const { crop, district = 'Kanpur', timeframe = '3months' } = req.query;
 
-    if (!marketForecast) {
-      return res
-        .status(404)
-        .json({ message: `Forecast not found for ${crop} over ${timeframe}.` });
+     const normalizedCrop =
+       crop.charAt(0).toUpperCase() + crop.slice(1).toLowerCase();
+
+    if (!crop) {
+      return res.status(400).json({ message: 'Crop parameter is required' });
     }
 
-    // Frontend expects the forecast data structure directly
-    res.status(200).json({ forecast: marketForecast });
+    // Call Python microservice
+    const FORECAST_SERVICE_URL = process.env.FORECAST_SERVICE_URL || 'http://localhost:5000';
+    
+    const response = await fetch(`${FORECAST_SERVICE_URL}/predict`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        crop,
+        district,
+        timeframe
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      return res.status(response.status).json({ 
+        message: error.error || 'Failed to get forecast' 
+      });
+    }
+
+    const data = await response.json();
+
+    res.json({
+      success: true,
+      forecast: data.forecast
+    });
+
   } catch (error) {
-    console.error(error);
-    res
-      .status(500)
-      .json({ message: "Server Error retrieving market price forecast" });
+    console.error('Price Forecast Error:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch price forecast',
+      error: error.message 
+    });
   }
 };
+
+
 
 // --- IoT Device Management ---
 
