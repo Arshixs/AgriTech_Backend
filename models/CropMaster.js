@@ -40,6 +40,10 @@ const cropMasterSchema = new mongoose.Schema(
       enum: ["system", "government"],
       default: "system",
     },
+    avgYieldPerAcre: {
+      type: Number,
+      default: 15,
+    }
   },
   { timestamps: true }
 );
